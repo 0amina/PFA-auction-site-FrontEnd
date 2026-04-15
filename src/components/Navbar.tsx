@@ -12,7 +12,7 @@ export default function Navbar() {
       {/* Logo + Nav Links */}
       <div className="flex items-center gap-12 shrink-0">
         <a href="/" className="text-2xl font-black text-[#191c1e] dark:text-white tracking-tight">
-          The Curator
+          The Curatorrrr
         </a>
         <nav className="hidden lg:flex gap-8 items-center h-full">
           {[
