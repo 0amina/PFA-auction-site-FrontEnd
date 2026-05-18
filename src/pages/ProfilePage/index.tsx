@@ -5,7 +5,7 @@
 // useState     → edit mode toggle, loading, success/error banners
 
 import { useReducer, useState, useCallback, useEffect } from 'react';
-import { useAuth }      from '../../context/Authcontext';
+import { useAuth }      from '../../context/AuthContext';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useRole }      from '../../hooks/useRole';
 

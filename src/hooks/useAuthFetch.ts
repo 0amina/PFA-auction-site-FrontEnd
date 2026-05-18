@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAuth }     from '../context/Authcontext';
+import { useAuth }     from '../context/AuthContext';
 
 /**
  * Returns a fetch() wrapper that automatically attaches

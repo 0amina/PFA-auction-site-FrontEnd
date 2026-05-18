@@ -1,30 +1,51 @@
 // LoginPage.tsx
-// Mirrors the SignUpPage split-screen layout.
-// useState  → form fields, show/hide password
+// useState  → form fields, show/hide password, loading
 // useCallback → stable submit handler
+// useAuth   → login() from AuthContext, redirects on success
 
-import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useCallback }  from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import BrandPanel from './BrandPanel';
+import { useAuth } from '../../context/AuthContext';
 
 const INPUT =
   'w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/40 font-body';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const { login }      = useAuth();
+  const navigate       = useNavigate();
+  const location       = useLocation();
+
+  // Redirect back to the page the user was trying to visit, or home
+  const from           = (location.state as { from?: Location })?.from?.pathname ?? '/';
+  // Success message passed from SignUpPage after registration
+  const successMessage = (location.state as { message?: string })?.message ?? '';
+
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [remember, setRemember]       = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]             = useState('');
+  const [isLoading, setIsLoading]     = useState(false);
 
   const isValid = email.trim() !== '' && password.length >= 6;
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValid) return;
+
     setError('');
-    // TODO: supabase.auth.signInWithPassword({ email, password })
-    console.log('Login:', { email, password, remember });
-  }, [email, password, remember]);
+    setIsLoading(true);
+
+    try {
+      await login({ email, password });
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      setError(err.message ?? 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email, password, isValid, login, navigate, from]);
 
   return (
     <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 overflow-hidden rounded-2xl editorial-shadow bg-surface-container-lowest">
@@ -42,6 +63,12 @@ export default function LoginPage() {
           Welcome back. Enter your credentials to continue.
         </p>
 
+        {successMessage && (
+          <div className="mb-4 p-3 bg-secondary-container text-on-secondary-container rounded-xl font-label text-sm">
+            {successMessage}
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 p-3 bg-error-container text-on-error-container rounded-xl font-label text-sm">
             {error}
@@ -54,8 +81,13 @@ export default function LoginPage() {
             <label className="font-label text-xs font-semibold uppercase tracking-wider text-outline block">
               Email Address
             </label>
-            <input className={INPUT} type="email" placeholder="curator@example.com"
-              value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input
+              className={INPUT}
+              type="email"
+              placeholder="curator@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
 
           {/* Password */}
@@ -69,10 +101,19 @@ export default function LoginPage() {
               </a>
             </div>
             <div className="relative">
-              <input className={INPUT} type={showPassword ? 'text' : 'password'} placeholder="••••••••"
-                value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button type="button" tabIndex={-1} onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors">
+              <input
+                className={INPUT}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
+              >
                 <span className="material-symbols-outlined text-lg">
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
@@ -82,15 +123,29 @@ export default function LoginPage() {
 
           {/* Remember me */}
           <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20" />
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
+            />
             <span className="font-body text-sm text-on-surface-variant">Keep me signed in</span>
           </label>
 
           {/* Submit */}
-          <button type="submit" disabled={!isValid}
-            className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold rounded-full transition-all active:scale-95 hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none editorial-shadow">
-            Sign In
+          <button
+            type="submit"
+            disabled={!isValid || isLoading}
+            className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold rounded-full transition-all active:scale-95 hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none editorial-shadow flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                Signing in…
+              </>
+            ) : (
+              'Sign In'
+            )}
           </button>
 
           {/* Mobile signup link */}
@@ -110,11 +165,23 @@ export default function LoginPage() {
           </div>
           <div className="grid grid-cols-2 gap-4 mt-2">
             {[
-              { label: 'Google', icon: <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0qIeV1C0XIfy1oIOxf7G6bSUf3N9LdFdRvlCQbVZsKkPJWUP3bYGrYv_UgdeDOq93HTWNZ_sm9rVaQ_tFM3o645cn3v0EQ849luOPZK_9iqdWvrRbRwi0kspftrni4VcdEv4cxYC0UNwIJYP5O4_ydX4cEObXKxss9wu6bb8ayE1kAP_KPxuRCiOJxf0vxpMcDC2fspPS2TlFoazC6IWpxrBZSpDAEtNWb-PoXD9EQ1gqhkauTk-r6XJR1hXB_L4IjDZqGC0ywA" alt="Google" className="w-5 h-5" /> },
+              {
+                label: 'Google',
+                icon: (
+                  <img
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0qIeV1C0XIfy1oIOxf7G6bSUf3N9LdFdRvlCQbVZsKkPJWUP3bYGrYv_UgdeDOq93HTWNZ_sm9rVaQ_tFM3o645cn3v0EQ849luOPZK_9iqdWvrRbRwi0kspftrni4VcdEv4cxYC0UNwIJYP5O4_ydX4cEObXKxss9wu6bb8ayE1kAP_KPxuRCiOJxf0vxpMcDC2fspPS2TlFoazC6IWpxrBZSpDAEtNWb-PoXD9EQ1gqhkauTk-r6XJR1hXB_L4IjDZqGC0ywA"
+                    alt="Google"
+                    className="w-5 h-5"
+                  />
+                ),
+              },
               { label: 'Apple', icon: <span className="material-symbols-outlined text-xl">ios</span> },
             ].map(({ label, icon }) => (
-              <button key={label} type="button"
-                className="flex items-center justify-center gap-2 py-3 bg-surface border border-outline-variant/20 rounded-xl hover:bg-surface-container-low transition-colors font-headline font-semibold text-sm text-on-surface">
+              <button
+                key={label}
+                type="button"
+                className="flex items-center justify-center gap-2 py-3 bg-surface border border-outline-variant/20 rounded-xl hover:bg-surface-container-low transition-colors font-headline font-semibold text-sm text-on-surface"
+              >
                 {icon}{label}
               </button>
             ))}

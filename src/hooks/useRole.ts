@@ -1,4 +1,4 @@
-import { useAuth } from '../context/Authcontext';
+import { useAuth } from '../context/AuthContext';
 import type { Role } from '../types/role';
 
 /**

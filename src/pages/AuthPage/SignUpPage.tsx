@@ -1,46 +1,85 @@
 // SignUpPage.tsx
-// useState  → form fields + show/hide password
+// useState  → form fields + show/hide password + loading
 // useMemo   → derived password rule checks (no recalc on unrelated field changes)
 // useCallback → stable submit handler
+// useAuth   → register() from AuthContext, redirects to login on success
 
 import { useState, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import BrandPanel from './BrandPanel';
+import { Link, useNavigate }              from 'react-router-dom';
+import BrandPanel                         from './BrandPanel';
+import { useAuth }                        from '../../context/AuthContext';
 
 const INPUT =
   'w-full bg-surface-container-low border-none rounded-xl px-4 py-4 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/40 font-body';
 
-type Fields = { name: string; email: string; password: string; confirm: string; terms: boolean };
+// first_name + last_name instead of a single name field — matches RegisterDto
+type Fields = {
+  first_name: string;
+  last_name:  string;
+  email:      string;
+  password:   string;
+  confirm:    string;
+  terms:      boolean;
+};
 
 export default function SignUpPage() {
+  const { register } = useAuth();
+  const navigate     = useNavigate();
+
   const [fields, setFields] = useState<Fields>({
-    name: '', email: '', password: '', confirm: '', terms: false,
+    first_name: '', last_name: '', email: '', password: '', confirm: '', terms: false,
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]               = useState('');
+  const [isLoading, setIsLoading]       = useState(false);
 
   const set = (key: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFields((prev) => ({ ...prev, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+    setFields((prev) => ({
+      ...prev,
+      [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value,
+    }));
 
   // Password rule checks — only recompute when password changes
   const rules = useMemo(() => ({
-    length: fields.password.length >= 8,
+    length:  fields.password.length >= 8,
     special: /[^a-zA-Z0-9]/.test(fields.password),
   }), [fields.password]);
 
-  const isValid = fields.name.trim() !== '' &&
-    fields.email.trim() !== '' &&
-    rules.length && rules.special &&
+  const isValid =
+    fields.first_name.trim() !== '' &&
+    fields.last_name.trim()  !== '' &&
+    fields.email.trim()      !== '' &&
+    rules.length && rules.special    &&
     fields.password === fields.confirm &&
     fields.terms;
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (fields.password !== fields.confirm) { setError('Passwords do not match.'); return; }
+    if (!isValid) return;
+
     setError('');
-    // TODO: supabase.auth.signUp({ email: fields.email, password: fields.password })
-    console.log('Sign up:', fields);
-  }, [fields]);
+    setIsLoading(true);
+
+    try {
+      await register({
+        first_name: fields.first_name.trim(),
+        last_name:  fields.last_name.trim(),
+        email:      fields.email.trim(),
+        password:   fields.password,
+      });
+
+      // Registration successful — send to login with a success message via state
+      navigate('/auth/login', {
+        replace: true,
+        state: { message: 'Account created! Please check your email to verify your account.' },
+      });
+    } catch (err: any) {
+      setError(err.message ?? 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fields, isValid, register, navigate]);
 
   return (
     <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 overflow-hidden rounded-2xl editorial-shadow bg-surface-container-lowest">
@@ -59,45 +98,95 @@ export default function SignUpPage() {
         </p>
 
         <form className="space-y-5" onSubmit={handleSubmit} noValidate>
-          {/* Name */}
-          <Field label="Full Name">
-            <input className={INPUT} type="text" placeholder="Johnathan Doe" value={fields.name} onChange={set('name')} />
-          </Field>
+
+          {/* Name row — split into first + last to match backend RegisterDto */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="First Name">
+              <input
+                className={INPUT}
+                type="text"
+                placeholder="Johnathan"
+                value={fields.first_name}
+                onChange={set('first_name')}
+              />
+            </Field>
+            <Field label="Last Name">
+              <input
+                className={INPUT}
+                type="text"
+                placeholder="Doe"
+                value={fields.last_name}
+                onChange={set('last_name')}
+              />
+            </Field>
+          </div>
 
           {/* Email */}
           <Field label="Email Address">
-            <input className={INPUT} type="email" placeholder="curator@example.com" value={fields.email} onChange={set('email')} />
+            <input
+              className={INPUT}
+              type="email"
+              placeholder="curator@example.com"
+              value={fields.email}
+              onChange={set('email')}
+            />
           </Field>
 
           {/* Password pair */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Password">
               <div className="relative">
-                <input className={INPUT} type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={fields.password} onChange={set('password')} />
-                <button type="button" tabIndex={-1} onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                <input
+                  className={INPUT}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={fields.password}
+                  onChange={set('password')}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
                 </button>
               </div>
             </Field>
             <Field label="Confirm Password">
-              <input className={INPUT} type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={fields.confirm} onChange={set('confirm')} />
+              <input
+                className={INPUT}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={fields.confirm}
+                onChange={set('confirm')}
+              />
             </Field>
           </div>
 
           {/* Password rules */}
           <div className="flex items-center gap-4">
-            <RuleChip met={rules.length} label="8+ characters" />
+            <RuleChip met={rules.length}  label="8+ characters" />
             <RuleChip met={rules.special} label="Special character" />
           </div>
 
           {/* Error */}
-          {error && <p className="text-sm text-error font-label">{error}</p>}
+          {error && (
+            <div className="p-3 bg-error-container text-on-error-container rounded-xl font-label text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Terms */}
           <label className="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" checked={fields.terms} onChange={set('terms')}
-              className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20" />
+            <input
+              type="checkbox"
+              checked={fields.terms}
+              onChange={set('terms')}
+              className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
+            />
             <span className="font-body text-sm text-on-surface-variant leading-tight">
               I agree to the{' '}
               <a href="#" className="text-primary font-semibold hover:underline">Terms &amp; Conditions</a>{' '}
@@ -107,9 +196,19 @@ export default function SignUpPage() {
           </label>
 
           {/* Submit */}
-          <button type="submit" disabled={!isValid}
-            className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold rounded-full transition-all active:scale-95 hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none editorial-shadow">
-            Create Account
+          <button
+            type="submit"
+            disabled={!isValid || isLoading}
+            className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold rounded-full transition-all active:scale-95 hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none editorial-shadow flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                Creating account…
+              </>
+            ) : (
+              'Create Account'
+            )}
           </button>
 
           {/* Mobile login link */}
@@ -141,11 +240,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function RuleChip({ met, label }: { met: boolean; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`material-symbols-outlined text-base ${met ? 'text-secondary' : 'text-outline'}`}
-        style={met ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+      <span
+        className={`material-symbols-outlined text-base ${met ? 'text-secondary' : 'text-outline'}`}
+        style={met ? { fontVariationSettings: "'FILL' 1" } : undefined}
+      >
         {met ? 'check_circle' : 'circle'}
       </span>
-      <span className={`font-label text-xs ${met ? 'text-on-surface-variant' : 'text-outline'}`}>{label}</span>
+      <span className={`font-label text-xs ${met ? 'text-on-surface-variant' : 'text-outline'}`}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -160,7 +263,16 @@ function SocialButtons() {
         </span>
       </div>
       <div className="grid grid-cols-2 gap-4 mt-2">
-        <SocialBtn label="Google" icon={<img src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0qIeV1C0XIfy1oIOxf7G6bSUf3N9LdFdRvlCQbVZsKkPJWUP3bYGrYv_UgdeDOq93HTWNZ_sm9rVaQ_tFM3o645cn3v0EQ849luOPZK_9iqdWvrRbRwi0kspftrni4VcdEv4cxYC0UNwIJYP5O4_ydX4cEObXKxss9wu6bb8ayE1kAP_KPxuRCiOJxf0vxpMcDC2fspPS2TlFoazC6IWpxrBZSpDAEtNWb-PoXD9EQ1gqhkauTk-r6XJR1hXB_L4IjDZqGC0ywA" alt="Google" className="w-5 h-5" />} />
+        <SocialBtn
+          label="Google"
+          icon={
+            <img
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0qIeV1C0XIfy1oIOxf7G6bSUf3N9LdFdRvlCQbVZsKkPJWUP3bYGrYv_UgdeDOq93HTWNZ_sm9rVaQ_tFM3o645cn3v0EQ849luOPZK_9iqdWvrRbRwi0kspftrni4VcdEv4cxYC0UNwIJYP5O4_ydX4cEObXKxss9wu6bb8ayE1kAP_KPxuRCiOJxf0vxpMcDC2fspPS2TlFoazC6IWpxrBZSpDAEtNWb-PoXD9EQ1gqhkauTk-r6XJR1hXB_L4IjDZqGC0ywA"
+              alt="Google"
+              className="w-5 h-5"
+            />
+          }
+        />
         <SocialBtn label="Apple" icon={<span className="material-symbols-outlined text-xl">ios</span>} />
       </div>
     </div>
@@ -169,8 +281,10 @@ function SocialButtons() {
 
 function SocialBtn({ label, icon }: { label: string; icon: React.ReactNode }) {
   return (
-    <button type="button"
-      className="flex items-center justify-center gap-2 py-3 bg-surface border border-outline-variant/20 rounded-xl hover:bg-surface-container-low transition-colors font-headline font-semibold text-sm text-on-surface">
+    <button
+      type="button"
+      className="flex items-center justify-center gap-2 py-3 bg-surface border border-outline-variant/20 rounded-xl hover:bg-surface-container-low transition-colors font-headline font-semibold text-sm text-on-surface"
+    >
       {icon}{label}
     </button>
   );
