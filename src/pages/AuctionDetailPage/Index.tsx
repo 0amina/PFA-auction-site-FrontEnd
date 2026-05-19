@@ -11,32 +11,33 @@ import BidHistory from './BidHistory';
 // ─── Mock data — replace with useAuction(id) hook once backend is wired ────────
 const IMAGES = [
   {
-    src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPbCO6bQIynOcOc96Yw-2XC2Mry_yOE-PloUjoeQpS1okZQPUMfdC5PsPOkFl06zNbMiA-9UbWORJgMiddW1xNi0KMcdwMpoRa8E8DzHtdnsAEDBm_IsItUDSGUveNYxf3WvQBUV6U-2H7xZj9Kz5LwpHj-5zmLVsDGm8AtwexxKMvmxxGnr3KVOOi13NiUzgdhZKuATxrxrGb7bDVYfIYXy7_5pkSkjycMRgh13ErZxrgLOFwqp-_RUJbhHKJB4AIVwxQ20eBcQ',
-    alt: 'Impressionist oil painting depicting a sunset over a calm river',
+    src: 'https://feahome.com/cdn/shop/products/YN7048_Chinesehand-craftedFloralVaseIncisedDecorationIntricateDesign_1200_4.jpg?v=1655134134?q=80&w=1200&auto=format&fit=crop',
+    alt: 'Handcrafted antique ceramic vase with floral patterns',
   },
   {
-    src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCJssEugzk19O5-ormi2E3uQ5ZgM156Om7KHRx-q-h1IMCTHIkKLGQPKr8BSasO9n9YvafID8iojtwr2L3LasYsDKQNIembL7_FhYyfMRpvCGn_PgTIi5q4HgweJoj4o6ci_Z1xquVTHlSzF_cUz2adm7ihEYk3iXPap2t8hUdHb87nLPKRgoHfVRDCfVaCtsE2_tSwchYxBIay6gFnN4APMK22uqkLJo-YdfS2sYOz5tsriuc6M9kpgK_jKSXyM8UMe1-9HyCf4g',
-    alt: 'Close up macro shot of thick oil paint brushstrokes on canvas',
+    src: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?q=80&w=1200&auto=format&fit=crop',
+    alt: 'Side view of vintage porcelain vase with blue details',
   },
   {
-    src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA36LeNTTc-nF_3Nlbb4gkwCEOP8Lqy5881KyX0c1dHPqWJFRt3QeACKAj69S5X0NFA1xw0b_FSn-FX2qiPwhL3HiVP0qRESZMevz4SjDv8QziZIRfdgfRL8b8C_38ugxC4QLqa1FD5uvzMixtgnoCrOvXUqQDQeVEOvhx0b2I_H2x5SXYG_aWtsyMJxyoykcPEPM5Od9neIJoh4sGVe6hlf5bfEwiHt3RV-qIaMyZtCLMlx-UIOLXNV4w2zutsyB1mMTbDf0ZiKQ',
-    alt: 'Side profile view of an ornate gold gilded picture frame',
+    src: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?q=80&w=1200&auto=format&fit=crop',
+    alt: 'Close-up of decorative ceramic vase texture and artwork',
   },
   {
-    src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDOisNo3yN65LmTPh5H22vOyBLtvlm1PCHyM7FV0uPipmZpsbeYoPjhTqQtybkMiM8u1UPMPmDe4UAUU7Y-dwAlOK48EUe_pwBX-CGIXL5crjc2mu61HxHRw7O7LMIQHLD4aJHUjnz3fyq9kexhalO7YR65Eaddn1UKLApCppPQqYCll6q-4WpQ2eTE1ZGuvbeI7AIEubgUAtuOXkfk7vYRLStS7QJm27BmBH1Rv5hHuOjrwxLGffwBWT2kz5GWjIrchxOUOzZWhg',
-    alt: 'Back of wooden canvas frame with auction house stamps',
+    src: 'https://images.unsplash.com/photo-1517705008128-361805f42e86?q=80&w=1200&auto=format&fit=crop',
+    alt: 'Elegant antique vase displayed on wooden table',
   },
 ];
 
 const BIDS = [
-  { bidderId: 'Bidder #7712', amount: 284500, timeAgo: '3 minutes ago', isHighest: true },
-  { bidderId: 'Bidder #4092', amount: 280000, timeAgo: '14 minutes ago' },
-  { bidderId: 'Bidder #1128', amount: 275500, timeAgo: '1 hour ago' },
-  { bidderId: 'Bidder #7712', amount: 270000, timeAgo: '2 hours ago' },
+  { bidderId: 'Bidder #2451', amount: 920, timeAgo: '2 minutes ago', isHighest: true },
+  { bidderId: 'Bidder #7712', amount: 890, timeAgo: '10 minutes ago' },
+  { bidderId: 'Bidder #4092', amount: 850, timeAgo: '35 minutes ago' },
+  { bidderId: 'Bidder #1128', amount: 800, timeAgo: '1 hour ago' },
 ];
 
-const TABS = ['Description', 'Condition Report', 'Provenance', 'Shipping'] as const;
+const TABS = ['Description', 'Condition Report', 'Shipping'] as const;
 type Tab = (typeof TABS)[number];
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AuctionDetailPage() {
@@ -47,13 +48,14 @@ export default function AuctionDetailPage() {
     <main className="pt-28 pb-24 px-8 max-w-7xl mx-auto w-full">
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 mb-8 font-label text-sm text-on-surface-variant">
-        <a href="/" className="hover:text-primary transition-colors">Fine Art</a>
-        <span className="material-symbols-outlined text-xs">chevron_right</span>
-        <a href="/" className="hover:text-primary transition-colors">Impressionism</a>
-        <span className="material-symbols-outlined text-xs">chevron_right</span>
-        <span className="text-on-surface font-semibold">Lot #4421</span>
-      </nav>
+      {/* Breadcrumb */}
+    <nav className="flex items-center gap-2 mb-8 font-label text-sm text-on-surface-variant">
+      <a href="/" className="hover:text-primary transition-colors">Home Decor</a>
+      <span className="material-symbols-outlined text-xs">chevron_right</span>
+      <a href="/" className="hover:text-primary transition-colors">Antique Vases</a>
+      <span className="material-symbols-outlined text-xs">chevron_right</span>
+     <span className="text-on-surface font-semibold">Lot #2187</span>
+    </nav>
 
       {/* ── Top grid: gallery (7) + bidding panel (5) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -68,13 +70,13 @@ export default function AuctionDetailPage() {
           {/* Title + consignor */}
           <div>
             <h1 className="text-4xl lg:text-5xl font-extrabold font-headline leading-tight text-on-surface mb-4">
-              L'Horizon Doré, 1884
+              Handcrafted Antique Ceramic Vase
             </h1>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-surface-container-high overflow-hidden shrink-0">
                 <img
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIro1sOZ2zSCUC3gdJ5ts_0maBt0Bdz093CEkmoRjVDDAJekHTyETaSaR3IAL6OErsOgMORVI80RjbC9IpYpr5qYOTFW54QcwJ2WxBq1iIGoF10Hcf8fJugGwpPgxads8lrR6EKAgVi0HzFHtm9gXonxI3DyJ73EI6G1EZglr0N3AvT4NYDEQBI4d8MWyDB--F4FCCge5omf1vRTo5GKqAba0ZAWIQuOkr4hIWgXqMB8Vv9ttqEVwEI-k8Vulfi2XGQveXLgY4XQ"
-                  alt="Gallery Des Vosges"
+                  alt="Vintage House Gallery"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -82,7 +84,7 @@ export default function AuctionDetailPage() {
                 <p className="font-label text-xs text-on-surface-variant font-medium uppercase tracking-widest">
                   Consigned by
                 </p>
-                <p className="font-body font-bold text-on-surface">Gallery Des Vosges</p>
+                <p className="font-body font-bold text-on-surface">Vintage House Gallery</p>
               </div>
               <div className="ml-auto">
                 <span className="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-xs font-bold font-label flex items-center gap-1">
@@ -100,12 +102,12 @@ export default function AuctionDetailPage() {
 
           {/* Bidding box */}
           <BiddingBox
-            currentBid={284500}
-            minimumNextBid={285000}
-            reserveMet={true}
-            countdown="02h 14m 55s"
-            estimate="$300k — $450k"
-          />
+  currentBid={920}
+  minimumNextBid={950}
+  reserveMet={true}
+  countdown="01h 42m 18s"
+  estimate="$800 — $1,200"
+/>
         </div>
       </div>
 
@@ -133,33 +135,35 @@ export default function AuctionDetailPage() {
           {/* Tab content */}
           {activeTab === 'Description' && (
             <div className="text-on-surface-variant font-body leading-relaxed space-y-6">
-              <p className="text-lg font-medium text-on-surface">
-                A masterwork of the late 19th century,{' '}
-                <em className="font-bold">L'Horizon Doré</em> represents the pinnacle of the
-                artist's experimentation with atmospheric light and water reflection.
-              </p>
-              <p>
-                The work, executed in the summer of 1884, marks a departure from earlier, more
-                structured compositions toward a more fluid, subjective interpretation of the
-                natural world. The canvas is thick with impasto in the sky region, creating a
-                physical sense of the setting sun's warmth, while the water is rendered with
-                delicate, transparent glazes that capture the shifting currents of the Seine.
-              </p>
-              <ul className="space-y-3 list-none p-0">
-                {[
-                  "Signed and dated 'G. Durant 84' lower right.",
-                  'Oil on canvas, 28.5 x 36 inches (72.4 x 91.4 cm).',
-                  'Exhibited at the International Impressionist Survey (Paris, 1889).',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-primary text-sm mt-1">
-                      check_circle
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+  <p className="text-lg font-medium text-on-surface">
+    This handcrafted antique ceramic vase features elegant floral artwork and
+    traditional craftsmanship, making it a unique decorative piece for collectors
+    and interior design enthusiasts.
+  </p>
+
+  <p>
+    Carefully preserved over the years, the vase showcases detailed hand-painted
+    patterns with a glossy porcelain finish. Its timeless design blends perfectly
+    with both modern and vintage interiors. The piece is ideal for living rooms,
+    entryways, or decorative shelves.
+  </p>
+
+  <ul className="space-y-3 list-none p-0">
+    {[
+      'Handcrafted ceramic with floral patterns.',
+      'Height: 42 cm.',
+      'Excellent vintage condition with minimal wear.',
+      'Ideal for home decoration or collectors.',
+    ].map((item) => (
+      <li key={item} className="flex items-start gap-3">
+        <span className="material-symbols-outlined text-primary text-sm mt-1">
+          check_circle
+        </span>
+        <span>{item}</span>
+      </li>
+    ))}
+  </ul>
+</div>
           )}
           {activeTab !== 'Description' && (
             <p className="text-on-surface-variant font-body">

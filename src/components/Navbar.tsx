@@ -1,6 +1,4 @@
 // src/components/Navbar.tsx
-// Wires hamburger to Sidebar via useSidebarToggle()
-// Categories button toggles FilterBar with active filter count badge
 
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate }           from 'react-router-dom';
@@ -19,7 +17,6 @@ export default function Navbar() {
   const [filterCount, setFilterCount] = useState(0);
   const dropdownRef                   = useRef<HTMLDivElement>(null);
 
-  // Close profile dropdown on outside click
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -47,11 +44,24 @@ export default function Navbar() {
   const initials    = user ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() : '';
   const displayName = user ? `${user.first_name} ${user.last_name}` : '';
 
+  // Balance and wallet — user object already carries these from your JWT/profile.
+  // `balance` is in TND. `wallet_address` is the connected Solana wallet (nullable).
+  const balance       = user?.balance ?? null;
+  const walletAddress = user?.wallet_address ?? null; // add this field to your User type if not present
+
+  const formattedBalance = balance !== null
+    ? balance.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' TND'
+    : null;
+
+  const shortWallet = walletAddress
+    ? `${walletAddress.slice(0, 4)}…${walletAddress.slice(-4)}`
+    : null;
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 w-full z-50 h-16 bg-[#e0e3e5] dark:bg-slate-900 flex items-center px-4 md:px-8 gap-4 font-headline font-bold uppercase tracking-wider">
 
-        {/* Hamburger — opens Sidebar drawer */}
+        {/* Hamburger */}
         <button
           onClick={toggleSidebar}
           aria-label="Open menu"
@@ -72,14 +82,11 @@ export default function Navbar() {
           <Link to="/" className="text-[#191c1e] dark:text-slate-300 font-medium text-sm hover:text-primary transition-colors">
             Auctions
           </Link>
-
-          {/* Categories — toggles FilterBar */}
           <button
             onClick={() => setFilterOpen(o => !o)}
-            className={`
-              flex items-center gap-1 font-medium text-sm transition-colors
-              ${filterOpen ? 'text-primary' : 'text-[#191c1e] dark:text-slate-300 hover:text-primary'}
-            `}
+            className={`flex items-center gap-1 font-medium text-sm transition-colors ${
+              filterOpen ? 'text-primary' : 'text-[#191c1e] dark:text-slate-300 hover:text-primary'
+            }`}
           >
             Categories
             {filterCount > 0 && !filterOpen && (
@@ -94,13 +101,6 @@ export default function Navbar() {
               expand_more
             </span>
           </button>
-
-          <Link to="/live" className="text-[#191c1e] dark:text-slate-300 font-medium text-sm hover:text-primary transition-colors">
-            Live
-          </Link>
-          <Link to="/archive" className="text-[#191c1e] dark:text-slate-300 font-medium text-sm hover:text-primary transition-colors">
-            Archive
-          </Link>
         </nav>
 
         {/* Search */}
@@ -126,18 +126,34 @@ export default function Navbar() {
                 <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>favorite</span>
               </Link>
 
-              {/* Profile dropdown */}
+              {/* Profile button */}
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setProfileOpen(o => !o)}
-                  className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full hover:bg-black/[0.06] dark:hover:bg-white/10 transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white text-[11px] font-black font-label">
+                  {/* Avatar */}
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white text-[11px] font-black font-label shrink-0">
                     {initials}
                   </div>
-                  <span className="hidden lg:block text-sm font-bold text-[#191c1e] dark:text-white normal-case tracking-normal">
-                    {displayName}
-                  </span>
+
+                  {/* Name + balance/wallet — desktop only */}
+                  <div className="hidden lg:flex flex-col items-start leading-none gap-[3px]">
+                    <span className="text-sm font-bold text-[#191c1e] dark:text-white normal-case tracking-normal">
+                      {displayName}
+                    </span>
+                    {/* Balance takes priority; wallet shown as fallback */}
+                    {formattedBalance !== null ? (
+                      <span className="text-[11px] font-label font-semibold text-[#006c49] normal-case tracking-normal">
+                        {formattedBalance}
+                      </span>
+                    ) : shortWallet !== null ? (
+                      <span className="text-[11px] font-label font-mono text-[#9945FF] normal-case tracking-normal flex items-center gap-1">
+                        <span>◎</span>{shortWallet}
+                      </span>
+                    ) : null}
+                  </div>
+
                   <span
                     className="material-symbols-outlined text-outline transition-transform duration-200"
                     style={{ fontSize: '18px', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -146,25 +162,56 @@ export default function Navbar() {
                   </span>
                 </button>
 
+                {/* ── Dropdown ── */}
                 {profileOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-[#fafafa] dark:bg-slate-900 rounded-2xl shadow-xl border border-black/[0.07] dark:border-white/[0.08] overflow-hidden z-50 font-label normal-case tracking-normal">
-                    <div className="px-4 py-3 border-b border-black/[0.06] dark:border-white/[0.06]">
-                      <p className="text-xs text-outline">Signed in as</p>
-                      <p className="text-sm font-bold text-on-surface truncate mt-0.5">{displayName}</p>
-                      <p className="text-xs text-outline capitalize mt-0.5">{user.role}</p>
+                  <div className="absolute right-0 top-full mt-2 w-60 bg-[#fafafa] dark:bg-slate-900 rounded-2xl shadow-xl border border-black/[0.07] dark:border-white/[0.08] overflow-hidden z-50 font-label normal-case tracking-normal">
+
+                    {/* Identity + balance + wallet */}
+                    <div className="px-4 py-3.5 border-b border-black/[0.06] dark:border-white/[0.06] space-y-3">
+                      {/* Name / role */}
+                      <div>
+                        <p className="text-xs text-outline">Signed in as</p>
+                        <p className="text-sm font-bold text-on-surface truncate mt-0.5">{displayName}</p>
+                        <p className="text-xs text-outline capitalize mt-0.5">{user.role}</p>
+                      </div>
+
+                      {/* Balance chip */}
+                      {formattedBalance !== null && (
+                        <div className="flex items-center justify-between px-3 py-2 bg-[#006c49]/5 border border-[#006c49]/15 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="material-symbols-outlined text-[#006c49]"
+                              style={{ fontSize: '15px', fontVariationSettings: "'FILL' 1" }}
+                            >
+                              account_balance_wallet
+                            </span>
+                            <span className="text-xs text-[#464555]">Balance</span>
+                          </div>
+                          <span className="text-sm font-black text-[#006c49]">{formattedBalance}</span>
+                        </div>
+                      )}
+
+                      {/* Wallet chip */}
+                      {shortWallet !== null && (
+                        <div className="flex items-center justify-between px-3 py-2 bg-[#9945FF]/5 border border-[#9945FF]/15 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#9945FF] font-black text-sm leading-none">◎</span>
+                            <span className="text-xs text-[#464555]">Wallet</span>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-[#9945FF]">{shortWallet}</span>
+                        </div>
+                      )}
                     </div>
 
+                    {/* Nav links */}
                     {[
-                      { icon: 'person', label: 'My Profile', to: '/profile' },
-                      { icon: 'gavel',  label: 'My Bids',    to: '/bids' },
+                      { icon: 'person',                label: 'My Profile', to: '/profile' },
                       ...(isSeller ? [
-                        { icon: 'add_circle', label: 'Create Auction', to: '/auctions/create' },
-                        { icon: 'storefront', label: 'My Listings',    to: '/my-auctions' },
+                        { icon: 'dashboard',           label: 'Seller Dashboard', to: '/seller/dashboard' },
                       ] : []),
                       ...(isAdmin ? [
                         { icon: 'admin_panel_settings', label: 'Admin Panel', to: '/admin' },
                       ] : []),
-                      { icon: 'settings', label: 'Settings', to: '/settings' },
                     ].map(item => (
                       <Link
                         key={item.to}
@@ -177,6 +224,7 @@ export default function Navbar() {
                       </Link>
                     ))}
 
+                    {/* Sign out */}
                     <div className="border-t border-black/[0.06] dark:border-white/[0.06]">
                       <button
                         onClick={handleLogout}
@@ -202,7 +250,6 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* FilterBar lives outside the header so it slides below it */}
       <FilterBar open={filterOpen} onFilterChange={handleFilterChange} />
     </>
   );

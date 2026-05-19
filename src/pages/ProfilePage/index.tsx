@@ -8,6 +8,7 @@ import { useReducer, useState, useCallback, useEffect } from 'react';
 import { useAuth }      from '../../context/AuthContext';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useRole }      from '../../hooks/useRole';
+import { useNavigate }  from 'react-router-dom';
 
 // ─── Form state ───────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ export default function ProfilePage() {
   const { user }      = useAuth();
   const authFetch     = useAuthFetch();
   const { isBuyer, isSeller, isAdmin } = useRole();
-
+  const navigate      = useNavigate();
   const initialForm: FormState = {
     first_name:       user?.first_name       ?? '',
     last_name:        user?.last_name        ?? '',
@@ -47,8 +48,6 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError]     = useState('');
-  const [sellerRequested, setSellerRequested] = useState(false);
-  const [sellerLoading, setSellerLoading]     = useState(false);
 
   // Fetch full profile on mount to get shipping_address
   useEffect(() => {
@@ -110,26 +109,7 @@ export default function ProfilePage() {
     setEditMode(false);
     setError('');
   }
-
-  // ── Request seller upgrade ──────────────────────────────────────────────────
-
-  const handleRequestSeller = useCallback(async () => {
-    setSellerLoading(true);
-    setError('');
-    try {
-      const res = await authFetch('/user/request-seller', { method: 'POST' });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? 'Request failed');
-      }
-      setSellerRequested(true);
-      setSuccess('Seller request submitted. You will be notified once approved.');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSellerLoading(false);
-    }
-  }, [authFetch]);
+  
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -318,45 +298,30 @@ export default function ProfilePage() {
         </section>
 
         {/* ── Become a seller — buyer only ── */}
-        {isBuyer && (
-          <section className="bg-surface-container-lowest rounded-2xl p-8 editorial-shadow">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary">storefront</span>
-              </div>
-              <div className="flex-1">
-                <h2 className="font-headline text-xl font-bold text-on-surface mb-1">
-                  Become a Seller
-                </h2>
-                <p className="font-body text-sm text-on-surface-variant mb-5">
-                  Start listing your items and reach collectors worldwide. Submit a request and our team will review your application.
-                </p>
-                <button
-                  onClick={handleRequestSeller}
-                  disabled={sellerRequested || sellerLoading}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold text-sm rounded-full hover:brightness-110 transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  {sellerLoading ? (
-                    <>
-                      <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                      Submitting…
-                    </>
-                  ) : sellerRequested ? (
-                    <>
-                      <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                      Request Submitted
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-base">storefront</span>
-                      Request Seller Access
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
+{isBuyer && (
+  <section className="bg-surface-container-lowest rounded-2xl p-8 editorial-shadow">
+    <div className="flex items-start gap-4">
+      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+        <span className="material-symbols-outlined text-primary">storefront</span>
+      </div>
+      <div className="flex-1">
+        <h2 className="font-headline text-xl font-bold text-on-surface mb-1">
+          Become a Seller
+        </h2>
+        <p className="font-body text-sm text-on-surface-variant mb-5">
+          Start listing your items and reach collectors worldwide. Submit a request and our team will review your application.
+        </p>
+        <button
+          onClick={() => navigate('/become-seller')}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold text-sm rounded-full hover:brightness-110 transition-all active:scale-95"
+        >
+          <span className="material-symbols-outlined text-base">storefront</span>
+          Request Seller Access
+        </button>
+      </div>
+    </div>
+  </section>
+)}
 
       </div>
     </main>

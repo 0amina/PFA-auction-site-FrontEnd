@@ -1,21 +1,14 @@
 // src/components/Sidebar.tsx
-// UX improvements over v1:
-// - Hamburger button in Navbar area (not a thin edge tab) — discoverable
-// - Tab on left edge remains as secondary affordance but is wider + labeled
-// - Drawer has clear section hierarchy with visual separators
-// - Active route highlighted
-// - Seller section has its own header treatment
-// - Smooth spring-feel cubic-bezier transition
-// - Body scroll locked while drawer open
-// - Focus trap: first link focused on open, Escape closes
+// Changes vs previous version:
+// - Added "Seller Dashboard" NavItem under the Seller section
+// - Added "Switch to Seller Mode" / "Switch to Buyer Mode" toggle in the footer
+//   (sellers only — uses a local state flag; wire to context if you want it persistent)
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation }            from 'react-router-dom';
 import { useAuth }                                   from '../context/AuthContext';
 import { useRole }                                   from '../hooks/useRole';
 
-// ─── Public toggle hook so Navbar can wire the hamburger ─────────────────────
-// We use a module-level signal so Navbar and Sidebar stay decoupled.
 type Listener = (open: boolean) => void;
 const listeners = new Set<Listener>();
 let _open = false;
@@ -32,54 +25,45 @@ export function openSidebar() {
   listeners.forEach(l => l(true));
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function Sidebar() {
-  const [open, setOpen]               = useState(false);
-  const { user, logout }              = useAuth();
+  const [open, setOpen]       = useState(false);
+  const [sellerMode, setSellerMode] = useState(true); // true = viewing as seller
+  const { user, logout }      = useAuth();
   const { isSeller, isAdmin, isAuthenticated } = useRole();
-  const navigate                      = useNavigate();
-  const location                      = useLocation();
-  const drawerRef                     = useRef<HTMLDivElement>(null);
-  const firstLinkRef                  = useRef<HTMLAnchorElement>(null);
+  const navigate              = useNavigate();
+  const location              = useLocation();
+  const drawerRef             = useRef<HTMLDivElement>(null);
+  const firstLinkRef          = useRef<HTMLAnchorElement>(null);
 
-  // Subscribe to external toggle signal
   useEffect(() => {
     const handler: Listener = (v) => setOpen(v);
     listeners.add(handler);
     return () => { listeners.delete(handler); };
   }, []);
 
-  // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
-  // Focus first link on open
   useEffect(() => {
     if (open) setTimeout(() => firstLinkRef.current?.focus(), 320);
   }, [open]);
 
-  // Close on outside click
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (open && drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
-        close();
-      }
+      if (open && drawerRef.current && !drawerRef.current.contains(e.target as Node)) close();
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  // Close on route change
   useEffect(() => { close(); }, [location.pathname]);
 
   function close() { _open = false; listeners.forEach(l => l(false)); setOpen(false); }
@@ -96,7 +80,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* ── Left-edge peek tab (secondary affordance) ── */}
+      {/* ── Left-edge peek tab ── */}
       <button
         onClick={() => { _open = true; listeners.forEach(l => l(true)); setOpen(true); }}
         aria-label="Open menu"
@@ -140,7 +124,6 @@ export default function Sidebar() {
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-
         {/* ── Drawer header ── */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-black/[0.06] dark:border-white/[0.06] shrink-0">
           <Link to="/" onClick={close} className="font-headline text-base font-black text-on-surface tracking-tight">
@@ -176,7 +159,6 @@ export default function Sidebar() {
             </span>
           </Link>
         ) : (
-          /* Guest card */
           <div className="px-5 py-5 border-b border-black/[0.06] dark:border-white/[0.06] shrink-0">
             <p className="font-body text-sm text-on-surface-variant mb-4 leading-relaxed">
               Sign in to track bids, messages, and saved lots.
@@ -203,12 +185,9 @@ export default function Sidebar() {
 
         {/* ── Scrollable nav ── */}
         <nav className="flex-1 overflow-y-auto py-3 px-3" aria-label="Main navigation">
-
           {isAuthenticated && (
             <>
-              {/* ── Personal section ── */}
               <SectionLabel>Personal</SectionLabel>
-
               <NavItem
                 ref={firstLinkRef as React.RefObject<HTMLAnchorElement>}
                 icon="chat_bubble"
@@ -217,29 +196,21 @@ export default function Sidebar() {
                 badge={3}
                 active={location.pathname === '/messages'}
               />
-              <NavItem
-                icon="gavel"
-                label="My Bids"
-                to="/bids"
-                active={location.pathname === '/bids'}
-              />
-              <NavItem
-                icon="favorite"
-                label="Favourites"
-                to="/favourites"
-                active={location.pathname === '/favourites'}
-              />
-              <NavItem
-                icon="notifications"
-                label="Notifications"
-                to="/notifications"
-                active={location.pathname === '/notifications'}
-              />
+              <NavItem icon="gavel"         label="My Bids"       to="/bids"          active={location.pathname === '/bids'}          />
+              <NavItem icon="favorite"      label="Favourites"    to="/favourites"    active={location.pathname === '/favourites'}    />
+              <NavItem icon="notifications" label="Notifications" to="/notifications" active={location.pathname === '/notifications'} />
 
               {/* ── Seller section ── */}
-              {isSeller && (
+              {isSeller && sellerMode && (
                 <>
                   <SectionLabel>Seller</SectionLabel>
+                  <NavItem
+                    icon="dashboard"
+                    label="Seller Dashboard"
+                    to="/seller/dashboard"
+                    active={location.pathname === '/seller/dashboard'}
+                    accent
+                  />
                   <NavItem
                     icon="add_circle"
                     label="Create Auction"
@@ -266,19 +237,8 @@ export default function Sidebar() {
               {isAdmin && (
                 <>
                   <SectionLabel>Admin</SectionLabel>
-                  <NavItem
-                    icon="admin_panel_settings"
-                    label="Dashboard"
-                    to="/admin"
-                    active={location.pathname.startsWith('/admin')}
-                    accent
-                  />
-                  <NavItem
-                    icon="how_to_reg"
-                    label="Seller Requests"
-                    to="/admin/seller-requests"
-                    active={location.pathname === '/admin/seller-requests'}
-                  />
+                  <NavItem icon="admin_panel_settings" label="Dashboard"       to="/admin"                    active={location.pathname.startsWith('/admin')}             accent />
+                  <NavItem icon="how_to_reg"           label="Seller Requests" to="/admin/seller-requests"    active={location.pathname === '/admin/seller-requests'}            />
                 </>
               )}
 
@@ -293,7 +253,7 @@ export default function Sidebar() {
                     List your collection and reach collectors worldwide.
                   </p>
                   <Link
-                    to="/profile"
+                    to="/become-seller"
                     onClick={close}
                     className="inline-flex items-center gap-1 font-label text-xs font-bold text-primary hover:underline"
                   >
@@ -307,7 +267,32 @@ export default function Sidebar() {
         </nav>
 
         {/* ── Footer ── */}
-        <div className="px-3 pb-4 pt-3 border-t border-black/[0.06] dark:border-white/[0.06] shrink-0">
+        <div className="px-3 pb-4 pt-3 border-t border-black/[0.06] dark:border-white/[0.06] shrink-0 space-y-1">
+
+          {/* Mode toggle — sellers only */}
+          {isSeller && isAuthenticated && (
+            <button
+              onClick={() => setSellerMode((m) => !m)}
+              className={`
+                w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label font-semibold transition-colors
+                ${sellerMode
+                  ? 'text-on-surface-variant hover:bg-black/[0.04]'
+                  : 'text-primary bg-primary/[0.06] hover:bg-primary/[0.10]'}
+              `}
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  fontSize: '18px',
+                  fontVariationSettings: sellerMode ? "'FILL' 0" : "'FILL' 1",
+                }}
+              >
+                {sellerMode ? 'person' : 'storefront'}
+              </span>
+              {sellerMode ? 'Switch to Buyer Mode' : 'Switch to Seller Mode'}
+            </button>
+          )}
+
           {isAuthenticated ? (
             <button
               onClick={handleLogout}
@@ -322,7 +307,6 @@ export default function Sidebar() {
             </p>
           )}
         </div>
-
       </div>
     </>
   );

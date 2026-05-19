@@ -101,7 +101,7 @@ function StandardCard({ auction }: { auction: Auction }) {
         <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-md p-2 rounded-full cursor-pointer hover:bg-white transition-all shadow-sm">
           <span
             className="material-symbols-outlined text-tertiary"
-            style={{ fontVariationSettings: "'FILL' 1" }}
+            style={{ fontVariationSettings: "'FILL' 2" }}
           >
             favorite
           </span>
@@ -118,31 +118,31 @@ function StandardCard({ auction }: { auction: Auction }) {
         <div className="flex items-end justify-between">
           <div>
             <span
-              className={`text-[10px] font-label block ${isEndingSoon ? 'text-tertiary font-bold' : 'text-outline'}`}
+              className={`text-[10px] font-label block TND{isEndingSoon ? 'text-tertiary font-bold' : 'text-outline'}`}
             >
               Current Bid
             </span>
             <span
-              className={`font-headline text-xl font-bold ${isEndingSoon ? 'text-tertiary' : ''}`}
+              className={`font-headline text-xl font-bold TND{isEndingSoon ? 'text-tertiary' : ''}`}
             >
               {formatCurrency(auction.currentBid)}
             </span>
           </div>
           <div className="text-right">
             <span
-              className={`text-[10px] font-label block ${isEndingSoon ? 'text-tertiary' : 'text-outline'}`}
+              className={`text-[10px] font-label block TND{isEndingSoon ? 'text-tertiary' : 'text-outline'}`}
             >
               {isEndingSoon ? 'Closes In' : 'Remaining'}
             </span>
             <span
-              className={`text-sm font-bold font-label ${isEndingSoon ? 'text-tertiary' : ''}`}
+              className={`text-sm font-bold font-label TND{isEndingSoon ? 'text-tertiary' : ''}`}
             >
               {isEndingSoon ? '42m 12s' : '4 Days'}
             </span>
           </div>
         </div>
 
-        {isEndingSoon ? (
+        {/*{isEndingSoon ? (
           <button className="mt-6 w-full bg-gradient-to-r from-primary to-primary-container text-white py-3 rounded-xl font-bold text-sm shadow-sm">
             Quick Bid
           </button>
@@ -150,7 +150,7 @@ function StandardCard({ auction }: { auction: Auction }) {
           <button className="mt-6 w-full py-3 rounded-xl border border-outline-variant font-bold text-sm text-on-surface hover:bg-surface-container transition-all">
             View Details
           </button>
-        )}
+        )}*/}
       </div>
     </article>
   );

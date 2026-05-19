@@ -7,6 +7,7 @@ export interface AuthUser {
   email:                string;
   role:                 Role;
   balance?:             number;
+  wallet_address?: string;
   profile_picture_url?: string;
   email_verified:       boolean;
 }

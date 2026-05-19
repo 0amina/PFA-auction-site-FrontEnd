@@ -13,6 +13,9 @@ export type FormState = {
   startDate: string;
   conditionGrade: ConditionGrade;
   location: string;
+  bidMethod:       'TND' | 'SOL';
+  walletConnected: boolean;
+  walletAddress:   string;
 };
 
 type Action = { type: 'SET_FIELD'; field: keyof FormState; value: FormState[keyof FormState] };
@@ -28,6 +31,9 @@ const INITIAL: FormState = {
   startDate: '',
   conditionGrade: 'Excellent',
   location: '',
+  bidMethod: 'TND',
+  walletConnected: false,
+  walletAddress: '',
 };
 
 function reducer(state: FormState, action: Action): FormState {
@@ -48,9 +54,10 @@ export function useFormState() {
       form.title.trim() !== '' &&
       form.description.trim() !== '' &&
       form.startingBid !== '' &&
+      (form.bidMethod === 'TND' || form.walletConnected) &&
       Number(form.startingBid) > 0 &&
       form.startDate !== '',
-    [form.title, form.description, form.startingBid, form.startDate],
+    [form.title, form.description, form.startingBid, form.startDate, form.bidMethod, form.walletConnected, form.walletAddress],
   );
 
   return { form, setField, isValid };

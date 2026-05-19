@@ -2,6 +2,7 @@ export interface User {
   id: string;
   email: string;
   createdAt: Date;
+  wallet_address?: string;
 }
 
 export interface UserProfile {

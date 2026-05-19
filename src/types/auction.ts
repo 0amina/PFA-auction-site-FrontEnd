@@ -38,4 +38,6 @@ export interface CreateAuctionDTO {
   conditionGrade: ConditionGrade;
   location: string;
   imageUrls: string[];
+  bidMethod:     'TND' | 'SOL';
+  walletAddress?: string;
 }

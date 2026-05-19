@@ -19,6 +19,9 @@ import LoginPage         from '../pages/AuthPage/LoginPage';
 import NotificationsPage from '../pages/NotificationsPage';
 import FavouritesPage    from '../pages/FavouritesPage';
 import ProfilePage       from '../pages/ProfilePage';
+import BecomeSellerPage from '../pages/BecomeSellerPage';
+import SellerDashboardPage from '../pages/SellerDashboardPage';
+import MessagesPage from '../pages/MessagesPage';
 
 // ─── Layouts ──────────────────────────────────────────────────────────────────
 
@@ -78,6 +81,18 @@ export default function AppRouter() {
           <Route
             path="favourites"
             element={<ProtectedRoute><FavouritesPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/become-seller"
+            element={<ProtectedRoute roles={['buyer']}><BecomeSellerPage /></ProtectedRoute>}
+          />
+          <Route
+            path="seller/dashboard"
+            element={<ProtectedRoute roles={['seller']}><SellerDashboardPage /></ProtectedRoute>}
+          />
+          <Route
+            path="messages"
+            element={<ProtectedRoute><MessagesPage /></ProtectedRoute>}
           />
         </Route>
 
