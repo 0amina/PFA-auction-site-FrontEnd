@@ -1,8 +1,13 @@
+// src/router/AppRouter.tsx
+// Sidebar is now self-contained (renders its own toggle button + drawer).
+// SidebarLayout no longer needs to render <Sidebar /> — it mounts itself
+// at the app root via Navbar or just lives inside the layout without offset.
+
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
-import Navbar        from '../components/Navbar';
-import Sidebar       from '../components/Sidebar';
-import Footer        from '../components/Footer';
+import Navbar         from '../components/Navbar';
+import Sidebar        from '../components/Sidebar';
+import Footer         from '../components/Footer';
 import ProtectedRoute from './ProtectedRoute';
 
 import HomePage          from '../pages/HomePage';
@@ -15,23 +20,15 @@ import NotificationsPage from '../pages/NotificationsPage';
 import FavouritesPage    from '../pages/FavouritesPage';
 import ProfilePage       from '../pages/ProfilePage';
 
-function SidebarLayout() {
-  return (
-    <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col">
-      <Navbar />
-      <div className="pt-16 flex flex-1">
-        <Sidebar />
-        <Outlet />
-      </div>
-      <Footer />
-    </div>
-  );
-}
+// ─── Layouts ──────────────────────────────────────────────────────────────────
 
-function FullWidthLayout() {
+// Both layouts now use the same structure — Sidebar is a self-contained drawer
+// that renders its own toggle tab fixed to the left edge. No offset needed.
+function MainLayout() {
   return (
     <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col">
       <Navbar />
+      <Sidebar />
       <div className="pt-16 flex flex-1 flex-col">
         <Outlet />
       </div>
@@ -39,6 +36,8 @@ function FullWidthLayout() {
     </div>
   );
 }
+
+// ─── 404 ─────────────────────────────────────────────────────────────────────
 
 const NotFoundPage = () => (
   <main className="flex items-center justify-center min-h-screen p-8">
@@ -52,19 +51,21 @@ const NotFoundPage = () => (
   </main>
 );
 
+// ─── Router ───────────────────────────────────────────────────────────────────
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<SidebarLayout />}>
+
+        {/* ── All main pages share one layout ── */}
+        <Route element={<MainLayout />}>
           <Route index element={<HomePage />} />
           <Route
             path="profile"
             element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
           />
-        </Route>
-
-        <Route element={<FullWidthLayout />}>
+          {/* static before dynamic */}
           <Route
             path="auctions/create"
             element={<ProtectedRoute roles={['seller']}><CreateAuctionPage /></ProtectedRoute>}
@@ -80,13 +81,16 @@ export default function AppRouter() {
           />
         </Route>
 
+        {/* ── Auth — own minimal layout ── */}
         <Route path="auth" element={<AuthLayout />}>
           <Route index element={<Navigate to="login" replace />} />
           <Route path="login"  element={<LoginPage />} />
           <Route path="signup" element={<SignUpPage />} />
         </Route>
 
+        {/* ── 404 ── */}
         <Route path="*" element={<NotFoundPage />} />
+
       </Routes>
     </BrowserRouter>
   );
