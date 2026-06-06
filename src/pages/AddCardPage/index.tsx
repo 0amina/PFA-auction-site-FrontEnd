@@ -22,10 +22,10 @@ function CardPreview({
   flipped,
   previewRef,
 }: {
-  card:       CardState;
-  tilt:       { x: number; y: number };
-  flipped:    boolean;
-  previewRef: React.RefObject<HTMLDivElement>;
+  card: CardState;
+  tilt: { x: number; y: number };
+  flipped: boolean;
+  previewRef: React.RefObject<HTMLDivElement | null>;
 }) {
   // Build masked number display
   const raw  = card.number.replace(/\s/g, '');
@@ -257,9 +257,6 @@ export default function AddCardPage() {
 
         {/* Breadcrumb */}
         <nav className="mb-12 flex items-center gap-2 text-on-surface-variant">
-          <Link to="/profile" className="font-bold uppercase tracking-[0.2em]" style={{ fontSize: '11px' }}>
-            Accounts
-          </Link>
           <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
           <span className="font-bold uppercase tracking-[0.2em] text-primary" style={{ fontSize: '11px' }}>
             Add New Card
