@@ -2,9 +2,9 @@
 // Different from AuctionCard: aspect-[4/5], status badge, unfavourite button, "View Details" CTA.
 import { useState } from 'react';
 import type { Auction } from '../../types/auction';
+import { formatMoney } from '../../utils/currency';
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+const fmt = (n: number) => formatMoney(n, 'TND');
 
 function timeLeft(endsAt: Date): string {
   const ms = endsAt.getTime() - Date.now();

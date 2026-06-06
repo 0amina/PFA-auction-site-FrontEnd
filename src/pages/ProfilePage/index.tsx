@@ -9,6 +9,7 @@ import { useAuth }      from '../../context/AuthContext';
 import { useAuthFetch } from '../../hooks/useAuthFetch';
 import { useRole }      from '../../hooks/useRole';
 import { useNavigate }  from 'react-router-dom';
+import { formatMoney }  from '../../utils/currency';
 
 // ─── Form state ───────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ export default function ProfilePage() {
                 <p className="text-xs text-outline font-body mt-0.5">Available for bidding</p>
               </div>
               <span className="font-headline font-bold text-lg text-on-surface">
-                {user?.balance?.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) ?? '$0.00'}
+                {formatMoney(user?.balance ?? 0, 'TND')}
               </span>
             </div>
             <div className="flex items-center justify-between py-3">

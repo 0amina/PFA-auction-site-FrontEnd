@@ -19,7 +19,7 @@ const MOCK: Notification[] = [
   {
     id: '2', type: 'new_bid', read: true, timeAgo: '15 mins ago',
     title: 'New bid placed by @collector_art',
-    body: 'A new bid of $12,500 was placed on',
+    body: 'A new bid of 12,500 TND was placed on',
     auctionTitle: 'Abstract Composition No. 4', auctionId: '2',
   },
   {

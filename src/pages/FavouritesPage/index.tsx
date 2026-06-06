@@ -103,7 +103,7 @@ export default function FavouritesPage() {
           <div className="w-px h-8 bg-outline-variant/30" />
           <div className="text-center">
             <span className="block font-headline text-2xl font-bold text-secondary">
-              ${(totalValue / 1000).toFixed(1)}k
+              {(totalValue / 1000).toFixed(1)}k TND
             </span>
             <span className="font-label text-xs uppercase tracking-wider text-outline">Total Value</span>
           </div>

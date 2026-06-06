@@ -1,8 +1,9 @@
 // src/router/AppRouter.tsx
-// Sidebar is now self-contained (renders its own toggle button + drawer).
-// SidebarLayout no longer needs to render <Sidebar /> — it mounts itself
-// at the app root via Navbar or just lives inside the layout without offset.
+// Sidebar is self-contained (renders its own toggle button + drawer).
+// Marketplace pages share MainLayout. Admin lives in its own AdminLayout group,
+// lazy-loaded so its bundle never ships to buyers/sellers.
 
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
 import Navbar         from '../components/Navbar';
@@ -19,14 +20,24 @@ import LoginPage         from '../pages/AuthPage/LoginPage';
 import NotificationsPage from '../pages/NotificationsPage';
 import FavouritesPage    from '../pages/FavouritesPage';
 import ProfilePage       from '../pages/ProfilePage';
-import BecomeSellerPage from '../pages/BecomeSellerPage';
+import BecomeSellerPage  from '../pages/BecomeSellerPage';
 import SellerDashboardPage from '../pages/SellerDashboardPage';
-import MessagesPage from '../pages/MessagesPage';
+import MessagesPage      from '../pages/MessagesPage';
+import MyBidsPage        from '../pages/MyBidsPage';
+import MyListingsPage    from '../pages/MyListingsPage';
+import ConnectWalletPage from '../pages/Connectwalletpage/Connectwallet';
+
+// ─── Admin (lazy — code-split out of the main bundle) ─────────────────────────
+const AdminLayout        = lazy(() => import('../pages/Admin/AdminLayout'));
+const AdminDashboardPage = lazy(() => import('../pages/Admin/DashboardPage'));
+const AdminUsersPage     = lazy(() => import('../pages/Admin/UsersPage'));
+const AdminSellerReqPage = lazy(() => import('../pages/Admin/SellerRequestsPage'));
+const AdminAuctionsPage  = lazy(() => import('../pages/Admin/AuctionsPage'));
 
 // ─── Layouts ──────────────────────────────────────────────────────────────────
 
-// Both layouts now use the same structure — Sidebar is a self-contained drawer
-// that renders its own toggle tab fixed to the left edge. No offset needed.
+// Sidebar is a self-contained drawer that renders its own toggle tab fixed to
+// the left edge — no offset needed.
 function MainLayout() {
   return (
     <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col">
@@ -54,6 +65,10 @@ const NotFoundPage = () => (
   </main>
 );
 
+const AdminFallback = () => (
+  <div className="p-12 font-body text-on-surface-variant">Loading…</div>
+);
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export default function AppRouter() {
@@ -61,19 +76,39 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
 
-        {/* ── All main pages share one layout ── */}
+        {/* ── Marketplace — shared layout ── */}
         <Route element={<MainLayout />}>
           <Route index element={<HomePage />} />
+
           <Route
             path="profile"
             element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
           />
+          <Route
+            path="wallet"
+            element={<ProtectedRoute><ConnectWalletPage /></ProtectedRoute>}
+          />
+          <Route
+            path="bids"
+            element={<ProtectedRoute><MyBidsPage /></ProtectedRoute>}
+          />
+
           {/* static before dynamic */}
           <Route
             path="auctions/create"
             element={<ProtectedRoute roles={['seller']}><CreateAuctionPage /></ProtectedRoute>}
           />
           <Route path="auctions/:id" element={<AuctionDetailPage />} />
+
+          <Route
+            path="my-auctions"
+            element={<ProtectedRoute roles={['seller']}><MyListingsPage /></ProtectedRoute>}
+          />
+          <Route
+            path="seller/dashboard"
+            element={<ProtectedRoute roles={['seller']}><SellerDashboardPage /></ProtectedRoute>}
+          />
+
           <Route
             path="notifications"
             element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>}
@@ -83,17 +118,30 @@ export default function AppRouter() {
             element={<ProtectedRoute><FavouritesPage /></ProtectedRoute>}
           />
           <Route
-            path="/become-seller"
-            element={<ProtectedRoute roles={['buyer']}><BecomeSellerPage /></ProtectedRoute>}
-          />
-          <Route
-            path="seller/dashboard"
-            element={<ProtectedRoute roles={['seller']}><SellerDashboardPage /></ProtectedRoute>}
-          />
-          <Route
             path="messages"
             element={<ProtectedRoute><MessagesPage /></ProtectedRoute>}
           />
+          <Route
+            path="become-seller"
+            element={<ProtectedRoute roles={['buyer']}><BecomeSellerPage /></ProtectedRoute>}
+          />
+        </Route>
+
+        {/* ── Admin — own layout, lazy-loaded, admin-only ── */}
+        <Route
+          path="admin"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <Suspense fallback={<AdminFallback />}>
+                <AdminLayout />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="seller-requests" element={<AdminSellerReqPage />} />
+          <Route path="auctions" element={<AdminAuctionsPage />} />
         </Route>
 
         {/* ── Auth — own minimal layout ── */}
@@ -112,9 +160,14 @@ export default function AppRouter() {
 }
 
 // http://localhost:5173
+// http://localhost:5173/bids
+// http://localhost:5173/my-auctions
+// http://localhost:5173/wallet
 // http://localhost:5173/notifications
 // http://localhost:5173/favourites
-// http://localhost:5173/auth/signup
-// http://localhost:5173/auth/login
 // http://localhost:5173/auctions/1
 // http://localhost:5173/auctions/create
+// http://localhost:5173/admin
+// http://localhost:5173/admin/users
+// http://localhost:5173/admin/seller-requests
+// http://localhost:5173/admin/auctions

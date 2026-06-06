@@ -1,12 +1,14 @@
 import { type Auction } from '../types/auction';
+import { formatMoney } from '../utils/currency';
 
 interface AuctionCardProps {
   auction: Auction;
   variant?: 'featured' | 'standard';
 }
 
+// Auctions carry no explicit currency yet — fiat lots settle in TND.
 function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+  return formatMoney(amount, 'TND');
 }
 
 // --- Featured (large) card ---
@@ -118,24 +120,24 @@ function StandardCard({ auction }: { auction: Auction }) {
         <div className="flex items-end justify-between">
           <div>
             <span
-              className={`text-[10px] font-label block TND{isEndingSoon ? 'text-tertiary font-bold' : 'text-outline'}`}
+              className={`text-[10px] font-label block ${isEndingSoon ? 'text-tertiary font-bold' : 'text-outline'}`}
             >
               Current Bid
             </span>
             <span
-              className={`font-headline text-xl font-bold TND{isEndingSoon ? 'text-tertiary' : ''}`}
+              className={`font-headline text-xl font-bold ${isEndingSoon ? 'text-tertiary' : ''}`}
             >
               {formatCurrency(auction.currentBid)}
             </span>
           </div>
           <div className="text-right">
             <span
-              className={`text-[10px] font-label block TND{isEndingSoon ? 'text-tertiary' : 'text-outline'}`}
+              className={`text-[10px] font-label block ${isEndingSoon ? 'text-tertiary' : 'text-outline'}`}
             >
               {isEndingSoon ? 'Closes In' : 'Remaining'}
             </span>
             <span
-              className={`text-sm font-bold font-label TND{isEndingSoon ? 'text-tertiary' : ''}`}
+              className={`text-sm font-bold font-label ${isEndingSoon ? 'text-tertiary' : ''}`}
             >
               {isEndingSoon ? '42m 12s' : '4 Days'}
             </span>

@@ -193,25 +193,26 @@ export default function Navbar() {
 
                       {/* Wallet chip */}
                       {shortWallet !== null && (
-                        <div className="flex items-center justify-between px-3 py-2 bg-[#9945FF]/5 border border-[#9945FF]/15 rounded-xl">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[#9945FF] font-black text-sm leading-none">◎</span>
-                            <span className="text-xs text-[#464555]">Wallet</span>
-                          </div>
-                          <span className="text-xs font-mono font-bold text-[#9945FF]">{shortWallet}</span>
-                        </div>
+                      <Link to="/wallet" onClick={() => setProfileOpen(false)}className="flex items-center justify-between px-3 py-2 bg-[#9945FF]/5 border border-[#9945FF]/15 rounded-xl hover:bg-[#9945FF]/10 transition-colors">
+                      <div className="flex items-center gap-2">
+                      <span className="text-[#9945FF] font-black text-sm leading-none">◎</span>
+                      <span className="text-xs text-[#464555]">Wallet</span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-[#9945FF]">{shortWallet}</span>
+                      </Link>
                       )}
                     </div>
 
                     {/* Nav links */}
                     {[
-                      { icon: 'person',                label: 'My Profile', to: '/profile' },
-                      ...(isSeller ? [
-                        { icon: 'dashboard',           label: 'Seller Dashboard', to: '/seller/dashboard' },
-                      ] : []),
-                      ...(isAdmin ? [
-                        { icon: 'admin_panel_settings', label: 'Admin Panel', to: '/admin' },
-                      ] : []),
+  { icon: 'person',                  label: 'My Profile', to: '/profile' },
+  { icon: 'account_balance_wallet',  label: 'Wallet',     to: '/wallet' },   // ← add this
+  ...(isSeller ? [
+    { icon: 'dashboard', label: 'Seller Dashboard', to: '/seller/dashboard' },
+  ] : []),
+  ...(isAdmin ? [
+    { icon: 'admin_panel_settings', label: 'Admin Panel', to: '/admin' },
+  ] : []),
                     ].map(item => (
                       <Link
                         key={item.to}

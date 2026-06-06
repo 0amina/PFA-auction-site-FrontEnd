@@ -405,9 +405,9 @@ function PriceInput({
 }: {
   value:    number | '';
   onChange: (v: number | '') => void;
-  currency: 'TND' | 'USD';
+  currency: 'TND' | 'SOL';
 }) {
-  const symbol = currency === 'TND' ? 'د' : '$';
+  const symbol = currency === 'SOL' ? '◎' : 'د';
   return (
     <div className="relative">
       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">{symbol}</span>

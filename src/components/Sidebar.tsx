@@ -196,6 +196,7 @@ export default function Sidebar() {
                 badge={3}
                 active={location.pathname === '/messages'}
               />
+              <NavItem icon="account_balance_wallet" label="Wallet" to="/wallet" active={location.pathname === '/wallet'} />
               <NavItem icon="gavel"         label="My Bids"       to="/bids"          active={location.pathname === '/bids'}          />
               <NavItem icon="favorite"      label="Favourites"    to="/favourites"    active={location.pathname === '/favourites'}    />
               <NavItem icon="notifications" label="Notifications" to="/notifications" active={location.pathname === '/notifications'} />

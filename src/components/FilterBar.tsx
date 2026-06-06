@@ -41,7 +41,7 @@ const P_MIN_DEFAULT = 0;
 const P_MAX_DEFAULT = 500000;
 
 function fmt(v: number) {
-  return v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`;
+  return v >= 1000 ? `${(v / 1000).toFixed(0)}k TND` : `${v} TND`;
 }
 
 export default function FilterBar({ open, onFilterChange }: FilterBarProps) {
@@ -275,8 +275,8 @@ export default function FilterBar({ open, onFilterChange }: FilterBarProps) {
           </div>
 
           {/* Max value */}
-          <span className="font-label text-xs font-bold text-on-surface tabular-nums shrink-0 w-14">
-            {pMax >= P_MAX_DEFAULT ? '$500k+' : fmt(pMax)}
+          <span className="font-label text-xs font-bold text-on-surface tabular-nums shrink-0 w-20 text-right">
+            {pMax >= P_MAX_DEFAULT ? '500k+ TND' : fmt(pMax)}
           </span>
 
         </div>

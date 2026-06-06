@@ -27,14 +27,16 @@ const IMGS = [
   'https://images.unsplash.com/photo-1517705008128-361805f42e86?q=80&w=1200&auto=format&fit=crop',
 ];
 
-const INITIAL: AdminAuction[] = [
+const BASE: Omit<AdminAuction, 'image'>[] = [
   { id: '1', title: 'Handcrafted Antique Ceramic Vase', seller: 'Galerie Sfax',     currency: 'TND', status: 'active',    currentBid: 920,  endsIn: '1d 17h' },
   { id: '2', title: 'Vintage Rolex Submariner 1680',    seller: 'Karim Belhadj',    currency: 'SOL', status: 'active',    currentBid: 14.2, endsIn: '4h 12m', endingSoon: true },
   { id: '3', title: 'Mid-Century Walnut Lounge Chair',  seller: 'Maison Vintage',   currency: 'TND', status: 'scheduled', currentBid: 0,    endsIn: 'in 2d' },
   { id: '4', title: 'Abstract Oil Painting, No.4',       seller: 'Atelier Nord',     currency: 'SOL', status: 'ended',     currentBid: 8.0,  endsIn: '' },
   { id: '5', title: 'Persian Silk Hand-Knotted Rug',    seller: 'Galerie Sfax',     currency: 'TND', status: 'active',    currentBid: 2350, endsIn: '22h' },
   { id: '6', title: 'Rare First Edition, Leather Bound', seller: 'Sami Trabelsi',    currency: 'SOL', status: 'ended',     currentBid: 4.5,  endsIn: '' },
-].map((a, i) => ({ ...a, image: IMGS[i % IMGS.length] }));
+];
+
+const INITIAL: AdminAuction[] = BASE.map((a, i) => ({ ...a, image: IMGS[i % IMGS.length] }));
 
 const FILTERS: { key: 'all' | AuctionStatus; label: string }[] = [
   { key: 'all', label: 'All' },

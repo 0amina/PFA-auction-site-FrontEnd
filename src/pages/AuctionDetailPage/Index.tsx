@@ -7,6 +7,7 @@ import { useState } from 'react';
 import ImageGallery from './ImageGallery';
 import BiddingBox from './BiddingBox';
 import BidHistory from './BidHistory';
+import { type Currency } from '../../utils/currency';
 
 // ─── Mock data — replace with useAuction(id) hook once backend is wired ────────
 const IMAGES = [
@@ -42,6 +43,9 @@ type Tab = (typeof TABS)[number];
 
 export default function AuctionDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('Description');
+  // Currency is a property of the auction (its bidMethod). Until the page is wired
+  // to useAuction(id), this toggle lets us preview both the TND and SOL flows.
+  const [currency, setCurrency] = useState<Currency>('TND');
 
   return (
     // No lg:ml-64 — this page has no sidebar in the HTML design
@@ -100,14 +104,37 @@ export default function AuctionDetailPage() {
             </div>
           </div>
 
+          {/* Currency toggle — in production this is fixed by the auction's bidMethod */}
+          <div className="flex items-center gap-1 p-1 bg-surface-container rounded-xl self-start">
+            {(['TND', 'SOL'] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => setCurrency(c)}
+                className={`px-4 py-2 rounded-lg font-label font-bold text-sm transition-all ${
+                  currency === c
+                    ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {c === 'SOL' ? '◎ SOL' : 'TND'}
+              </button>
+            ))}
+          </div>
+
           {/* Bidding box */}
           <BiddingBox
-  currentBid={920}
-  minimumNextBid={950}
-  reserveMet={true}
-  countdown="01h 42m 18s"
-  estimate="$800 — $1,200"
-/>
+            currency={currency}
+            currentBid={920}
+            minimumNextBid={950}
+            reserveMet={true}
+            countdown="01h 42m 18s"
+            estimateLow={800}
+            estimateHigh={1200}
+            onPlaceBid={(amount, cur) => {
+              // TODO(gateway): submit the bid; for now just surface it.
+              alert(`Bid placed: ${amount} ${cur}`);
+            }}
+          />
         </div>
       </div>
 
@@ -174,7 +201,7 @@ export default function AuctionDetailPage() {
 
         {/* Bid history */}
         <div className="lg:col-span-4">
-          <BidHistory bids={BIDS} totalCount={24} />
+          <BidHistory bids={BIDS} totalCount={24} currency={currency} />
         </div>
       </div>
     </main>

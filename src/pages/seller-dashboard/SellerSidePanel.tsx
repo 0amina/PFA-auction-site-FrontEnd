@@ -117,7 +117,7 @@ function EarningsSummary({ segments }: { segments: EarningsSegment[] }) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-[Plus_Jakarta_Sans] text-xl font-extrabold text-[#191c1e]">$42k</span>
+            <span className="font-[Plus_Jakarta_Sans] text-xl font-extrabold text-[#191c1e]">42k TND</span>
             <span className="font-[Inter] text-[9px] text-[#464555] uppercase tracking-wider">This Month</span>
           </div>
         </div>

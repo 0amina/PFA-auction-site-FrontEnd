@@ -1,3 +1,5 @@
+import { type Currency, formatMoney } from '../../utils/currency';
+
 interface BidEntry {
   bidderId: string;
   amount: number;
@@ -8,13 +10,10 @@ interface BidEntry {
 interface BidHistoryProps {
   bids: BidEntry[];
   totalCount: number;
+  currency: Currency;
 }
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-}
-
-export default function BidHistory({ bids, totalCount }: BidHistoryProps) {
+export default function BidHistory({ bids, totalCount, currency }: BidHistoryProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -48,7 +47,7 @@ export default function BidHistory({ bids, totalCount }: BidHistoryProps) {
               </div>
             </div>
             <p className={`font-headline font-bold text-lg ${bid.isHighest ? 'text-secondary' : 'text-on-surface'}`}>
-              {formatCurrency(bid.amount)}
+              {formatMoney(bid.amount, currency)}
             </p>
           </div>
         ))}

@@ -57,7 +57,7 @@ export function EmptyState({
 
 // ─── ActionMenu ───────────────────────────────────────────────────────────────
 
-export function ActionMenu({ listingId }: { listingId: string }) {
+export function ActionMenu({ listingId: _listingId }: { listingId: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
