@@ -26,13 +26,15 @@ import MessagesPage      from '../pages/MessagesPage';
 import MyBidsPage        from '../pages/MyBidsPage';
 import MyListingsPage    from '../pages/MyListingsPage';
 import ConnectWalletPage from '../pages/Connectwalletpage/Connectwallet';
-
+import AddCardPage  from '../pages/AddCardPage';
 // ─── Admin (lazy — code-split out of the main bundle) ─────────────────────────
 const AdminLayout        = lazy(() => import('../pages/Admin/AdminLayout'));
 const AdminDashboardPage = lazy(() => import('../pages/Admin/DashboardPage'));
 const AdminUsersPage     = lazy(() => import('../pages/Admin/UsersPage'));
 const AdminSellerReqPage = lazy(() => import('../pages/Admin/SellerRequestsPage'));
 const AdminAuctionsPage  = lazy(() => import('../pages/Admin/AuctionsPage'));
+
+
 
 // ─── Layouts ──────────────────────────────────────────────────────────────────
 
@@ -92,7 +94,10 @@ export default function AppRouter() {
             path="bids"
             element={<ProtectedRoute><MyBidsPage /></ProtectedRoute>}
           />
-
+<Route
+  path="add-card"
+  element={<ProtectedRoute><AddCardPage /></ProtectedRoute>}
+/>
           {/* static before dynamic */}
           <Route
             path="auctions/create"
@@ -126,7 +131,6 @@ export default function AppRouter() {
             element={<ProtectedRoute roles={['buyer']}><BecomeSellerPage /></ProtectedRoute>}
           />
         </Route>
-
         {/* ── Admin — own layout, lazy-loaded, admin-only ── */}
         <Route
           path="admin"

@@ -205,14 +205,17 @@ export default function Navbar() {
 
                     {/* Nav links */}
                     {[
+
   { icon: 'person',                  label: 'My Profile', to: '/profile' },
   { icon: 'account_balance_wallet',  label: 'Wallet',     to: '/wallet' },   // ← add this
+   { icon: 'credit_card',           label: 'Add Card',    to: '/add-card'  },
   ...(isSeller ? [
     { icon: 'dashboard', label: 'Seller Dashboard', to: '/seller/dashboard' },
   ] : []),
   ...(isAdmin ? [
     { icon: 'admin_panel_settings', label: 'Admin Panel', to: '/admin' },
   ] : []),
+
                     ].map(item => (
                       <Link
                         key={item.to}
