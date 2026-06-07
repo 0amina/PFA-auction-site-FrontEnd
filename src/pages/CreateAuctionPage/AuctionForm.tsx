@@ -32,14 +32,16 @@ interface Props {
   form:           FormState;
   setField:       <K extends keyof FormState>(field: K, value: FormState[K]) => void;
   isValid:        boolean;
-  onImagesChange: (urls: string[]) => void;
+  onFilesChange:  (files: File[]) => void;
   onSubmit:       (e: React.FormEvent) => void;
   onSaveDraft:    () => void;
+  submitting?:    boolean;
+  error?:         string | null;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function AuctionForm({ form, setField, isValid, onImagesChange, onSubmit, onSaveDraft }: Props) {
+export default function AuctionForm({ form, setField, isValid, onFilesChange, onSubmit, onSaveDraft, submitting, error }: Props) {
   const isSol = form.bidMethod === 'SOL';
 
   return (
@@ -79,7 +81,7 @@ export default function AuctionForm({ form, setField, isValid, onImagesChange, o
 
       {/* 02 — Visual Documentation */}
       <Section step="02" title="Visual Documentation">
-        <ImageUpload onImagesChange={onImagesChange} />
+        <ImageUpload onFilesChange={onFilesChange} />
       </Section>
 
       {/* 03 — Auction Parameters */}
@@ -167,21 +169,26 @@ export default function AuctionForm({ form, setField, isValid, onImagesChange, o
         </div>
       </Section>
 
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-error-container text-on-error-container rounded-xl font-label text-sm">
+          <span className="material-symbols-outlined text-base">error</span>
+          {error}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between pt-8 border-t border-outline-variant/20">
-        <button type="button" onClick={onSaveDraft}
-          className="text-on-surface font-headline font-bold hover:text-primary transition-colors flex items-center gap-2">
+        <button type="button" onClick={onSaveDraft} disabled={submitting}
+          className="text-on-surface font-headline font-bold hover:text-primary transition-colors flex items-center gap-2 disabled:opacity-40">
           <span className="material-symbols-outlined text-sm">save</span>
           Save Draft
         </button>
         <div className="flex gap-4">
-          <button type="button"
-            className="px-8 py-4 bg-surface-container-high text-on-surface font-headline font-bold rounded-xl hover:bg-surface-variant transition-all">
-            Preview Listing
-          </button>
-          <button type="submit" disabled={!isValid || (isSol && !form.walletConnected)}
-            className="px-12 py-4 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none">
-            Create Auction
+          <button type="submit" disabled={!isValid || (isSol && !form.walletConnected) || submitting}
+            className="px-12 py-4 bg-gradient-to-r from-primary to-primary-container text-white font-headline font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2">
+            {submitting && <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>}
+            {submitting ? 'Creating…' : 'Create Auction'}
           </button>
         </div>
       </div>

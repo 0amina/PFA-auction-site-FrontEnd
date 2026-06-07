@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 
 const PURPLE = '#9945FF'; // matches the wallet colour used in the Navbar
 const EXPLORER = (addr: string) => `https://explorer.solana.com/address/${addr}?cluster=devnet`;
@@ -53,18 +54,32 @@ function buildLinkMessage(address: string) {
   return `Link this Phantom wallet to your AuctionSite account.\n\nWallet: ${address}\nNonce: ${nonce}`;
 }
 
-// STUB — wire this to your API gateway → user-service.
-// e.g.  await api.patch('/users/me/wallet', payload)
-// Server verifies the ed25519 signature against `address`, then stores it as
-// `phantom_wallet_address`. Pass address:null to clear it on disconnect.
-async function persistWallet(_payload: { address: string | null; message?: string; signature?: string }) {
-  await new Promise((r) => setTimeout(r, 500));
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ConnectWalletPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const authFetch = useAuthFetch();
+
+  // Persists the linked wallet through the gateway → user-service, which
+  // verifies the ed25519 signature against the address before storing it.
+  async function persistWallet(payload: { address: string | null; message?: string; signature?: string }) {
+    if (!payload.address) return; // disconnect is local-only (no clear endpoint)
+    const res = await authFetch('/user/me/wallet', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        phantom_wallet_address: payload.address,
+        message: payload.message,
+        signature: payload.signature,
+        encoding: 'base64',
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message ?? 'Failed to link wallet.');
+    }
+    await refreshUser();
+  }
+
   const isSeller = user?.role === 'seller';
   const savedAddress = (user as { wallet_address?: string | null } | null)?.wallet_address ?? null;
 

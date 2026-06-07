@@ -16,44 +16,70 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEditFormState, type EditFormState } from './useEditFormState';
 import EditAuctionForm from './EditAuctionForm';
 import TipsSidebar from '../CreateAuctionPage/TipsSidebar'; // reuse existing sidebar
-import type { AuctionCategory, AuctionDuration, ConditionGrade } from '../../types/auction';
+import type { AuctionCategory, ConditionGrade } from '../../types/auction';
+import { request, normalizeAuction, type BackendAuction, type UiAuction } from '../../lib/api';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 
-// ─── Mock auction fetch — replace with your real auctionService.getById(id) ──
-// Returns a shape identical to what the API would return.
-function useMockAuction(id: string) {
-  const [data, setData]     = useState<EditFormState | null>(null);
-  const [images, setImages] = useState<string[]>([]);
+// Backend enum → editorial category (best-effort; falls back to 'Fine Art').
+const CATEGORY_TO_EDITORIAL: Record<string, AuctionCategory> = {
+  art: 'Fine Art', jewelry: 'Jewelry', vehicles: 'Automobiles', collectibles: 'Timepieces',
+};
+const CONDITION_TO_GRADE: Record<string, ConditionGrade> = {
+  new: 'Mint (As New)', like_new: 'Excellent', used: 'Good (Shows Wear)', damaged: 'Fair (Functional)',
+};
+
+function toEditForm(a: UiAuction): EditFormState {
+  return {
+    title:          a.title,
+    description:    a.description,
+    category:       CATEGORY_TO_EDITORIAL[a.category] ?? 'Fine Art',
+    provenance:     '',
+    reservePrice:   a.reservePrice ?? '',
+    startingBid:    a.startingBid,
+    duration:       '7 Days',
+    startDate:      a.endTime ? a.endTime.slice(0, 16) : '',
+    conditionGrade: CONDITION_TO_GRADE[a.condition ?? ''] ?? 'Excellent',
+    location:       '',
+    bidMethod:      a.bidMethod,
+    walletConnected: a.bidMethod === 'TND' || !!a.sellerWallet,
+    walletAddress:  a.sellerWallet ?? '',
+  };
+}
+
+// Real fetch via gateway → auction-service.
+function useAuctionForEdit(id: string) {
+  const [data, setData] = useState<EditFormState | null>(null);
   const [status, setStatus] = useState<'draft' | 'active' | 'ended'>('draft');
+  // Editing is locked only once bidding/escrow has actually begun — this mirrors
+  // the auction-service rules (TND: after the first bid, SOL: after on-chain
+  // escrow, or any ended/settled auction). A live auction with no bids is still
+  // editable, so it must NOT disable the form.
+  const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setData({
-        title:          'Handcrafted Antique Ceramic Vase',
-        description:    'Carefully preserved over the years, the vase showcases detailed hand-painted patterns with a glossy porcelain finish.',
-        category:       'Fine Art' as AuctionCategory,
-        provenance:     '19th Century',
-        reservePrice:   800,
-        startingBid:    500,
-        duration:       '7 Days' as AuctionDuration,
-        startDate:      '2026-06-15T10:00',
-        conditionGrade: 'Excellent' as ConditionGrade,
-        location:       'Tunis, Tunisia',
-        bidMethod:      'TND',
-        walletConnected: false,
-        walletAddress:  '',
-      });
-      setImages([
-        'https://feahome.com/cdn/shop/products/YN7048_Chinesehand-craftedFloralVaseIncisedDecorationIntricateDesign_1200_4.jpg?v=1655134134',
-        'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?q=80&w=400',
-      ]);
-      setStatus('draft');
-      setLoading(false);
-    }, 600);
+    if (!id) return;
+    let alive = true;
+    (async () => {
+      try {
+        const raw = await request<BackendAuction>(`/auctions/${id}`, { auth: false });
+        const a = normalizeAuction(raw);
+        if (!alive) return;
+        setData(toEditForm(a));
+        setStatus(a.rawStatus === 'active' ? 'active' : a.status === 'closed' ? 'ended' : 'draft');
+        setLocked(
+          a.status === 'closed' ||
+          (a.bidMethod === 'TND' && a.bidCount > 0) ||
+          (a.bidMethod === 'SOL' && !!a.escrowAddress),
+        );
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
   }, [id]);
 
-  return { data, images, setImages, status, loading };
+  return { data, status, locked, loading };
 }
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -120,16 +146,10 @@ export default function EditAuctionPage() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { data, images: existingImages, setImages, status, loading } = useMockAuction(id ?? '');
+  const { data, status, locked, loading } = useAuctionForEdit(id ?? '');
 
-  const [images, setLocalImages]     = useState<string[]>([]);
   const [showDelete, setShowDelete]  = useState(false);
   const [saveStatus, setSaveStatus]  = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  // Seed images once data loads
-  useEffect(() => {
-    if (existingImages.length) setLocalImages(existingImages);
-  }, [existingImages]);
 
   // Only initialise the form once data has loaded
   if (loading || !data) {
@@ -146,9 +166,8 @@ export default function EditAuctionPage() {
   return <EditAuctionPageInner
     id={id ?? ''}
     initialForm={data}
-    images={images}
-    onImagesChange={setLocalImages}
     status={status}
+    locked={locked}
     showDelete={showDelete}
     setShowDelete={setShowDelete}
     saveStatus={saveStatus}
@@ -160,15 +179,14 @@ export default function EditAuctionPage() {
 // Inner component — only rendered after data is ready, so useEditFormState
 // gets the real initial values instead of empty strings.
 function EditAuctionPageInner({
-  id, initialForm, images, onImagesChange,
-  status, showDelete, setShowDelete,
+  id, initialForm,
+  status, locked, showDelete, setShowDelete,
   saveStatus, setSaveStatus, navigate,
 }: {
   id:              string;
   initialForm:     EditFormState;
-  images:          string[];
-  onImagesChange:  (u: string[]) => void;
   status:          'draft' | 'active' | 'ended';
+  locked:          boolean;
   showDelete:      boolean;
   setShowDelete:   (v: boolean) => void;
   saveStatus:      'idle' | 'saving' | 'saved';
@@ -176,30 +194,50 @@ function EditAuctionPageInner({
   navigate:        ReturnType<typeof useNavigate>;
 }) {
   const { form, setField, isValid } = useEditFormState(initialForm);
-  const isLocked = status === 'active' || status === 'ended';
+  const authFetch = useAuthFetch();
+  const isLocked = locked;
+
+  // Editorial values → backend enums (mirror createAuction.ts).
+  const toBackendCategory = (c: string) =>
+    ({ 'Timepieces': 'collectibles', 'Fine Art': 'art', 'Jewelry': 'jewelry', 'Automobiles': 'vehicles', 'Rare Coins': 'collectibles' } as Record<string, string>)[c];
+  const toBackendCondition = (c: string) =>
+    ({ 'Mint (As New)': 'new', 'Excellent': 'like_new', 'Good (Shows Wear)': 'used', 'Restored': 'used', 'Fair (Functional)': 'damaged' } as Record<string, string>)[c];
+
+  const persist = useCallback(async () => {
+    setSaveStatus('saving');
+    const body: Record<string, unknown> = {
+      title: form.title,
+      description: form.description,
+      category: toBackendCategory(form.category),
+      condition: toBackendCondition(form.conditionGrade),
+    };
+    if (form.startingBid !== '') body.startingPrice = Number(form.startingBid);
+    if (form.reservePrice !== '') body.reservePrice = Number(form.reservePrice);
+
+    const res = await authFetch(`/auctions/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    if (res.ok) {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2500);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setSaveStatus('idle');
+      alert(err.message ?? 'Could not save changes.');
+    }
+  }, [form, id, authFetch, setSaveStatus]);
 
   const handleUpdate = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid || isLocked) return;
-    setSaveStatus('saving');
-    // TODO: auctionService.update(id, { ...form, imageUrls: images })
-    console.log('Update auction', id, { ...form, imageUrls: images });
-    setTimeout(() => {
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2500);
-    }, 1200);
-  }, [form, images, id, isValid, isLocked]);
+    void persist();
+  }, [isValid, isLocked, persist]);
 
-  const handleDelete = useCallback(() => {
-    // TODO: auctionService.delete(id)
-    console.log('Delete auction', id);
-    navigate('/my-auctions');
-  }, [id, navigate]);
+  const handleDelete = useCallback(async () => {
+    const res = await authFetch(`/auctions/${id}`, { method: 'DELETE' });
+    if (res.ok) navigate('/my-auctions');
+    else alert('Could not delete this auction.');
+  }, [id, navigate, authFetch]);
 
-  const handleSaveDraft = useCallback(() => {
-    // TODO: auctionService.saveDraft(id, { ...form, imageUrls: images })
-    console.log('Save draft', id, { ...form, imageUrls: images });
-  }, [form, images, id]);
+  const handleSaveDraft = useCallback(() => { void persist(); }, [persist]);
 
   return (
     <>
@@ -252,8 +290,6 @@ function EditAuctionPageInner({
             setField={setField}
             isValid={isValid}
             isLocked={isLocked}
-            images={images}
-            onImagesChange={onImagesChange}
             onSubmit={handleUpdate}
             onSaveDraft={handleSaveDraft}
             saveStatus={saveStatus}

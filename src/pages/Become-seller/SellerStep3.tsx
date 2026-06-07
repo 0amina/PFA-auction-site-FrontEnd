@@ -48,10 +48,14 @@ export default function SellerStep3({ step1, step2, onBack, onGoToStep }: Props)
     setLoading(true);
     setError(null);
     try {
-      await authFetch('http://localhost:3001/user/request-seller', { method: 'POST' });
+      const res = await authFetch('/user/request-seller', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message ?? 'Request failed');
+      }
       setSubmitted(true);
-    } catch {
-      setError('Something went wrong. Please try again.');
+    } catch (e: any) {
+      setError(e?.message ?? 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -105,7 +105,7 @@ export default function AppRouter() {
   path="add-card"
   element={<ProtectedRoute><AddCardPage /></ProtectedRoute>}
 />
-<Route path="add-balance" element={<AddBalancePage />} />
+<Route path="add-balance" element={<ProtectedRoute><AddBalancePage /></ProtectedRoute>} />
 <Route path="/auctions" element={<FeaturedAuctionsPage />} />
           {/* static before dynamic */}
           <Route

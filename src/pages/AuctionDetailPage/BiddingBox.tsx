@@ -4,7 +4,7 @@
 // depending on the auction's bidMethod. Local to AuctionDetailPage — not shared.
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { type Currency, formatMoney, formatRange, currencySymbol, bidStep } from '../../utils/currency';
 
@@ -16,7 +16,7 @@ interface BiddingBoxProps {
   countdown: string;        // e.g. "02h 14m 55s"
   estimateLow: number;
   estimateHigh: number;
-  onPlaceBid?: (amount: number, currency: Currency) => void;
+  onPlaceBid?: (amount: number, currency: Currency) => Promise<void> | void;
 }
 
 const SOL_PURPLE = '#9945FF'; // matches the wallet glyph used on the Connect Wallet page
@@ -32,21 +32,30 @@ export default function BiddingBox({
   onPlaceBid,
 }: BiddingBoxProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bidAmount, setBidAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const isSol = currency === 'SOL';
   const walletLinked = !!user?.wallet_address;
   const balance = user?.balance ?? 0;
+  const isLoggedIn = !!user;
 
   // A SOL bid can only be placed from a linked Phantom wallet.
   const needsWallet = isSol && !walletLinked;
   // A TND bid is funded from the user's Konnect balance.
   const insufficientFunds = !isSol && balance < minimumNextBid;
 
-  function handlePlaceBid() {
+  async function handlePlaceBid() {
     setError(null);
+    setSuccess(null);
 
+    if (!isLoggedIn) {
+      navigate('/auth/login');
+      return;
+    }
     if (needsWallet) {
       setError('Link a Phantom wallet before placing a SOL bid.');
       return;
@@ -66,11 +75,20 @@ export default function BiddingBox({
       return;
     }
 
-    // TODO(gateway): POST the bid to the API gateway.
-    //   • TND → bid-service locks the amount against the Konnect balance.
-    //   • SOL → escrow-service creates the on-chain Anchor escrow for `amount`.
-    onPlaceBid?.(amount, currency);
-    setBidAmount('');
+    try {
+      setSubmitting(true);
+      await onPlaceBid?.(amount, currency);
+      setSuccess(
+        isSol
+          ? 'Bid placed — your SOL is locked in escrow.'
+          : 'Bid placed successfully.',
+      );
+      setBidAmount('');
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not place your bid. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -162,12 +180,18 @@ export default function BiddingBox({
 
             <button
               onClick={handlePlaceBid}
-              className={`w-full text-white py-4 rounded-xl font-bold text-lg font-headline transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-primary/20 ${
+              disabled={submitting}
+              className={`w-full text-white py-4 rounded-xl font-bold text-lg font-headline transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 ${
                 isSol ? '' : 'bg-gradient-to-r from-primary to-primary-container'
               }`}
               style={isSol ? { background: `linear-gradient(135deg, ${SOL_PURPLE}, #7c3aed)` } : undefined}
             >
-              {isSol ? 'Place Bid · Lock in Escrow' : 'Place Your Bid'}
+              {submitting && (
+                <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              )}
+              {submitting
+                ? (isSol ? 'Confirm in Phantom…' : 'Placing bid…')
+                : (isSol ? 'Place Bid · Lock in Escrow' : 'Place Your Bid')}
             </button>
           </>
         )}
@@ -177,6 +201,12 @@ export default function BiddingBox({
           <p className="flex items-center gap-1.5 text-center text-sm text-error font-label font-semibold">
             <span className="material-symbols-outlined text-sm">error</span>
             {error}
+          </p>
+        )}
+        {success && (
+          <p className="flex items-center gap-1.5 text-center text-sm text-secondary font-label font-semibold">
+            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+            {success}
           </p>
         )}
 

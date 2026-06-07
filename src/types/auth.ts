@@ -7,7 +7,11 @@ export interface AuthUser {
   email:                string;
   role:                 Role;
   balance?:             number;
-  wallet_address?: string;
+  // Backend stores the Solana wallet as `phantom_wallet_address`; we expose it
+  // as `wallet_address` for the UI and keep the original for round-tripping.
+  wallet_address?:         string | null;
+  phantom_wallet_address?: string | null;
+  shipping_address?:    string;
   profile_picture_url?: string;
   email_verified:       boolean;
 }

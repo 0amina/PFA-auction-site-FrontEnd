@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useAuth }     from '../context/AuthContext';
+import { API_URL }     from '../lib/api';
 
 /**
  * Returns a fetch() wrapper that automatically attaches
@@ -14,7 +15,7 @@ import { useAuth }     from '../context/AuthContext';
 export function useAuthFetch() {
   const { accessToken, logout } = useAuth();
 
-  const API = import.meta.env.VITE_USER_SERVICE_URL ?? 'http://localhost:3001';
+  const API = API_URL;   // the API gateway proxies every service
 
   const authFetch = useCallback(
     async (path: string, init: RequestInit = {}): Promise<Response> => {

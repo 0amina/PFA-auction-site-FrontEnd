@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate }           from 'react-router-dom';
 import { useAuth }                     from '../context/AuthContext';
+import { useNotifications }            from '../context/NotificationsContext';
 import { useRole }                     from '../hooks/useRole';
 import FilterBar, { type ActiveFilters } from './FilterBar';
 import { useSidebarToggle }            from './Sidebar';
@@ -10,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 
 export default function Navbar() {
   const { user, logout }              = useAuth();
+  const { unreadCount }               = useNotifications();
   const { isSeller, isAdmin }         = useRole();
   const toggleSidebar                 = useSidebarToggle();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -68,7 +70,7 @@ useEffect(() => {
 
   function handleFilterChange(f: ActiveFilters) {
     const count =
-      (f.category !== 'All' ? 1 : 0) +
+      (f.category !== 'all' ? 1 : 0) +
       f.quickFilters.length +
       (f.priceMin > 0 || f.priceMax < 500000 ? 1 : 0);
     setFilterCount(count);
@@ -99,15 +101,15 @@ useEffect(() => {
     // ONLY control navigation on /auctions page
     if (location.pathname !== '/auctions') return;
 
-    if (trimmed) {
-      navigate(`/auctions?search=${encodeURIComponent(trimmed)}`);
-    } else {
-      navigate('/auctions');
-    }
+    // Merge with existing params so an active category filter is preserved.
+    const next = new URLSearchParams(location.search);
+    if (trimmed) next.set('search', trimmed);
+    else next.delete('search');
+    navigate({ pathname: '/auctions', search: next.toString() });
   }, 300);
 
   return () => clearTimeout(handler);
-}, [search, navigate, location.pathname]);
+}, [search, navigate, location.pathname, location.search]);
   return (
     <>
       <header className="fixed top-0 left-0 right-0 w-full z-50 h-16 flex items-center px-4 md:px-8 gap-4 font-headline font-bold uppercase tracking-wider transition-all duration-300" id="main-nav" style={{ background: 'transparent' }}>
@@ -200,10 +202,15 @@ useEffect(() => {
         <div className="flex items-center gap-2 shrink-0">
           {user ? (
             <>
-              <Link to="/notifications" className={`transition-colors w-9 h-9 flex items-center justify-center rounded-lg ${
+              <Link to="/notifications" className={`relative transition-colors w-9 h-9 flex items-center justify-center rounded-lg ${
   isTransparent ? 'text-white/80' : 'text-black'
 }`}>
                 <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>notifications</span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[10px] font-black flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Link>
               <Link to="/favourites" className={`transition-colors w-9 h-9 flex items-center justify-center rounded-lg ${
   isTransparent ? 'text-white/80' : 'text-black'

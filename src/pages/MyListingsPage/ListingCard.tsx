@@ -155,7 +155,7 @@ function ViewLink({ to }: { to: string }) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-export default function ListingCard({ listing, onEdit, onDelete, onPublish, onConfirm, onRelist }: ListingCardProps) {
+export default function ListingCard({ listing, onDelete, onPublish, onConfirm, onRelist }: ListingCardProps) {
   const navigate = useNavigate();
   const hasBids = listing.bidCount > 0;
   const detailUrl = `/auctions/${listing.id}`;

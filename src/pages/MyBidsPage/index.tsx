@@ -8,9 +8,12 @@
 // e.g.  const bids = useMyBids();   // GET /bids/me via api-gateway
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import BidCard, { type MyBid, type BidStatus } from './BidCard';
+import { useAuth } from '../../context/AuthContext';
+import { request, normalizeAuction, type BackendAuction, type UiAuction } from '../../lib/api';
+import { fetchBids } from '../../lib/bids';
 
 type TabKey = 'active' | 'won' | 'lost';
 
@@ -21,60 +24,49 @@ function tabOf(status: BidStatus): TabKey {
   return 'active';
 }
 
-// ─── Mock data — swap for the real fetch (see header note) ────────────────────
+// There is no per-user bids endpoint, so we reconstruct the buyer's bids by
+// scanning each auction's public bid history for the current user.
+async function loadMyBids(userId: string): Promise<MyBid[]> {
+  const rows = await request<BackendAuction[]>('/auctions', { auth: false });
+  const auctions = rows.map(normalizeAuction);
 
-const now = Date.now();
-const inHours = (h: number) => new Date(now + h * 3_600_000).toISOString();
-const daysAgo = (d: number) => new Date(now - d * 86_400_000).toISOString();
+  const results = await Promise.all(
+    auctions.map(async (a) => {
+      let bids;
+      try { bids = await fetchBids(a.id); } catch { return null; }
+      const mine = bids.filter((b) => String(b.bidder_id) === String(userId));
+      if (mine.length === 0) return null;
+      return buildMyBid(a, Math.max(...mine.map((b) => Number(b.amount))), mine.length, userId);
+    }),
+  );
 
-const IMGS = [
-  'https://feahome.com/cdn/shop/products/YN7048_Chinesehand-craftedFloralVaseIncisedDecorationIntricateDesign_1200_4.jpg?v=1655134134',
-  'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?q=80&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?q=80&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1517705008128-361805f42e86?q=80&w=1200&auto=format&fit=crop',
-];
+  return results.filter((b): b is MyBid => b !== null);
+}
 
-// Annotated as Omit<MyBid,'auctionImage'>[] so currency/status keep their literal
-// union types instead of widening to string before the map adds the image.
-const RAW: Omit<MyBid, 'auctionImage'>[] = [
-  {
-    id: 'b1', auctionId: '1', auctionTitle: 'Handcrafted Antique Ceramic Vase',
-    category: 'Home Decor • Antique Vases', currency: 'TND',
-    myBid: 920, currentBid: 920, status: 'winning', bidCount: 3, endsAt: inHours(41),
-  },
-  {
-    id: 'b2', auctionId: '2', auctionTitle: 'Vintage Rolex Submariner 1680',
-    category: 'Watches • Diver', currency: 'SOL',
-    myBid: 12.5, currentBid: 14.2, status: 'outbid', bidCount: 4, endsAt: inHours(5),
-  },
-  {
-    id: 'b3', auctionId: '3', auctionTitle: 'Mid-Century Walnut Lounge Chair',
-    category: 'Furniture • Seating', currency: 'TND',
-    myBid: 1850, currentBid: 1850, status: 'winning', bidCount: 2, endsAt: inHours(2),
-  },
-  {
-    id: 'b4', auctionId: '4', auctionTitle: 'Persian Silk Hand-Knotted Rug',
-    category: 'Textiles • Rugs', currency: 'TND',
-    myBid: 2100, currentBid: 2350, status: 'outbid', bidCount: 2, endsAt: inHours(22),
-  },
-  {
-    id: 'b5', auctionId: '5', auctionTitle: 'Abstract Oil Painting, Untitled No.4',
-    category: 'Art • Paintings', currency: 'SOL',
-    myBid: 8.0, currentBid: 8.0, status: 'won', bidCount: 5, endsAt: daysAgo(2), endedAt: daysAgo(2),
-  },
-  {
-    id: 'b6', auctionId: '6', auctionTitle: 'Art Deco Brass Table Lamp',
-    category: 'Lighting • Table Lamps', currency: 'TND',
-    myBid: 430, currentBid: 510, status: 'lost', bidCount: 3, endsAt: daysAgo(4), endedAt: daysAgo(4),
-  },
-  {
-    id: 'b7', auctionId: '7', auctionTitle: 'Rare First Edition, Bound in Leather',
-    category: 'Books • First Editions', currency: 'SOL',
-    myBid: 3.2, currentBid: 4.5, status: 'lost', bidCount: 1, endsAt: daysAgo(6), endedAt: daysAgo(6),
-  },
-];
+function buildMyBid(a: UiAuction, myBid: number, count: number, userId: string): MyBid {
+  const isClosed = a.status === 'closed';
+  const amHighest = String(a.highestBidderId) === String(userId);
+  const amWinner = String(a.winnerId) === String(userId) || (isClosed && amHighest);
 
-const MOCK_BIDS: MyBid[] = RAW.map((b, i) => ({ ...b, auctionImage: IMGS[i % IMGS.length] }));
+  let status: BidStatus;
+  if (isClosed) status = amWinner ? 'won' : 'lost';
+  else status = amHighest ? 'winning' : 'outbid';
+
+  return {
+    id: a.id,
+    auctionId: a.id,
+    auctionTitle: a.title,
+    auctionImage: a.imageUrl,
+    category: a.category,
+    currency: a.bidMethod,
+    myBid,
+    currentBid: a.currentBid,
+    status,
+    bidCount: count,
+    endsAt: a.endTime,
+    endedAt: isClosed ? a.endTime : undefined,
+  };
+}
 
 // ─── Local sub-components ─────────────────────────────────────────────────────
 
@@ -128,9 +120,27 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export default function MyBidsPage() {
+  const { user } = useAuth();
   const [tab, setTab] = useState<TabKey>('active');
+  const [bids, setBids] = useState<MyBid[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const bids = MOCK_BIDS; // ← replace with useMyBids()
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      try {
+        const data = await loadMyBids(user.id);
+        if (alive) setBids(data);
+      } catch (e: any) {
+        if (alive) setError(e?.message ?? 'Failed to load your bids');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [user]);
 
   const counts: Record<TabKey, number> = {
     active: bids.filter((b) => tabOf(b.status) === 'active').length,
@@ -188,7 +198,11 @@ export default function MyBidsPage() {
       </div>
 
       {/* List */}
-      {visible.length === 0 ? (
+      {loading ? (
+        <div className="py-20 text-center text-on-surface-variant font-label">Loading your bids…</div>
+      ) : error ? (
+        <div className="py-12 text-center text-error font-label">{error}</div>
+      ) : visible.length === 0 ? (
         <EmptyState tab={tab} />
       ) : (
         <div className="space-y-4">

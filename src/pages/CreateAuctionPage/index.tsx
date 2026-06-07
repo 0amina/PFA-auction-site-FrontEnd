@@ -1,29 +1,51 @@
 // index.tsx — CreateAuctionPage entry point
 // Composes: AuctionForm + TipsSidebar
-// Owns: form state (via hook), image list, submit + draft handlers
-import { useState, useCallback } from 'react';
+// Owns: form state (via hook), image files, submit handler (→ auction-service)
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFormState } from './useFormState';
 import AuctionForm from './AuctionForm';
 import TipsSidebar from './TipsSidebar';
-import type { CreateAuctionDTO } from '../../types/auction';
+import { createAuction } from '../../lib/createAuction';
+import { useAuth } from '../../context/AuthContext';
 
 export default function CreateAuctionPage() {
   const { form, setField, isValid } = useFormState();
-  const [images, setImages] = useState<string[]>([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [files, setFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reflect the real linked wallet so the SOL submit gate matches the account.
+  useEffect(() => {
+    const wallet = user?.wallet_address ?? '';
+    setField('walletConnected', !!wallet);
+    setField('walletAddress', wallet);
+  }, [user?.wallet_address, setField]);
+
+  const submit = useCallback(async () => {
+    setError(null);
+    if (form.bidMethod === 'SOL' && !user?.wallet_address) {
+      setError('Connect your Phantom wallet (Profile → Wallet) before creating a SOL auction.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const auction = await createAuction(form, files);
+      navigate(`/auctions/${auction.id}`);
+    } catch (e: any) {
+      setError(e?.message ?? 'Something went wrong creating your auction.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [form, files, user?.wallet_address, navigate]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValid) return;
-    const payload: CreateAuctionDTO = { ...form, imageUrls: images };
-    // TODO: auctionService.create(payload)
-    console.log('Submit:', payload);
-  }, [form, images, isValid]);
-
-  const handleSaveDraft = useCallback(() => {
-    const draft: CreateAuctionDTO = { ...form, imageUrls: images };
-    // TODO: persist draft
-    console.log('Draft:', draft);
-  }, [form, images]);
+    if (!isValid || submitting) return;
+    void submit();
+  }, [isValid, submitting, submit]);
 
   return (
     <main className="pt-16 pb-24 px-8 max-w-7xl mx-auto flex flex-col lg:flex-row gap-16">
@@ -40,9 +62,11 @@ export default function CreateAuctionPage() {
           form={form}
           setField={setField}
           isValid={isValid}
-          onImagesChange={setImages}
+          onFilesChange={setFiles}
           onSubmit={handleSubmit}
-          onSaveDraft={handleSaveDraft}
+          onSaveDraft={() => { if (isValid && !submitting) void submit(); }}
+          submitting={submitting}
+          error={error}
         />
       </div>
       <TipsSidebar />

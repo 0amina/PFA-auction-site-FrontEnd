@@ -1,11 +1,10 @@
 // src/components/FilterBar.tsx
-// Layout: 3 rows separated by 1px dividers
-// Row 1 — category pills
-// Row 2 — quick filter toggles
-// Row 3 — price range label above, slider + values inline
+// Category quick-nav shown under the navbar. Selecting a category drives the
+// /auctions listing via the `?category=` query param (backend enum values),
+// which AllAuctionsPage reads and filters on.
 
-import { useState, useCallback, useEffect } from 'react';
-import { Link, useLocation }                from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export interface ActiveFilters {
   category:     string;
@@ -19,70 +18,45 @@ interface FilterBarProps {
   onFilterChange?: (f: ActiveFilters) => void;
 }
 
+// `value` matches the auction-service AuctionCategory enum; 'all' clears it.
 const CATEGORIES = [
-  { label: 'All',          icon: 'apps',            href: '/' },
-  { label: 'Fine Art',     icon: 'palette',          href: '/categories/fine-art' },
-  { label: 'Timepieces',   icon: 'watch',            href: '/categories/timepieces' },
-  { label: 'Jewelry',      icon: 'diamond',          href: '/categories/jewelry' },
-  { label: 'Rare Coins',   icon: 'monetization_on',  href: '/categories/rare-coins' },
-  { label: 'Automobiles',  icon: 'directions_car',   href: '/categories/automobiles' },
-  { label: 'Fine Wine',    icon: 'wine_bar',         href: '/categories/fine-wine' },
-  { label: 'Collectibles', icon: 'category',         href: '/categories/collectibles' },
+  { label: 'All',           value: 'all',              icon: 'apps' },
+  { label: 'Art',           value: 'art',              icon: 'palette' },
+  { label: 'Jewelry',       value: 'jewelry',          icon: 'diamond' },
+  { label: 'Vehicles',      value: 'vehicles',         icon: 'directions_car' },
+  { label: 'Electronics',   value: 'electronics',      icon: 'devices' },
+  { label: 'Furniture',     value: 'furniture',        icon: 'chair' },
+  { label: 'Fashion',       value: 'fashion',          icon: 'checkroom' },
+  { label: 'Collectibles',  value: 'collectibles',     icon: 'category' },
+  { label: 'Pets & Animals', value: 'pets_and_animals', icon: 'pets' },
 ];
 
-const QUICK = [
-  { label: 'Ending Soon',  value: 'ending_soon',  icon: 'timer' },
-  { label: 'No Reserve',   value: 'no_reserve',   icon: 'lock_open' },
-  { label: 'Hot Lots',     value: 'hot_lots',      icon: 'local_fire_department' },
-  { label: 'New Arrivals', value: 'new_arrivals',  icon: 'new_releases' },
-];
-
-const P_MIN_DEFAULT = 0;
 const P_MAX_DEFAULT = 500000;
 
-function fmt(v: number) {
-  return v >= 1000 ? `${(v / 1000).toFixed(0)}k TND` : `${v} TND`;
-}
-
 export default function FilterBar({ open, onFilterChange }: FilterBarProps) {
-  const location = useLocation();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const activeCategory = params.get('category') ?? 'all';
 
-  const [cat,      setCat]      = useState('All');
-  const [quick,    setQuick]    = useState<string[]>([]);
-  const [pMin,     setPMin]     = useState(P_MIN_DEFAULT);
-  const [pMax,     setPMax]     = useState(P_MAX_DEFAULT);
-  const [pTouched, setPTouched] = useState(false);
+  const [cat, setCat] = useState(activeCategory);
 
-  // Sync active category with URL
+  // Keep the highlighted pill in sync with the URL.
   useEffect(() => {
-    const m = CATEGORIES.find(c => c.href !== '/' && location.pathname.startsWith(c.href));
-    setCat(m ? m.label : 'All');
-  }, [location.pathname]);
+    setCat(activeCategory);
+  }, [activeCategory]);
 
-  // Notify parent
+  // Notify parent (drives the navbar filter-count badge).
   useEffect(() => {
-    onFilterChange?.({ category: cat, quickFilters: quick, priceMin: pMin, priceMax: pMax });
-  }, [cat, quick, pMin, pMax]);
+    onFilterChange?.({ category: cat, quickFilters: [], priceMin: 0, priceMax: P_MAX_DEFAULT });
+  }, [cat, onFilterChange]);
 
-  const toggleQuick = useCallback((v: string) => {
-    setQuick(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
-  }, []);
-
-  const activeCount =
-    (cat !== 'All' ? 1 : 0) +
-    quick.length +
-    (pTouched ? 1 : 0);
-
-  function clearAll() {
-    setCat('All');
-    setQuick([]);
-    setPMin(P_MIN_DEFAULT);
-    setPMax(P_MAX_DEFAULT);
-    setPTouched(false);
+  function selectCategory(value: string) {
+    // Preserve any active search term while swapping the category.
+    const next = new URLSearchParams(params);
+    if (value === 'all') next.delete('category');
+    else next.set('category', value);
+    navigate({ pathname: '/auctions', search: next.toString() });
   }
-
-  const minPct = (pMin / P_MAX_DEFAULT) * 100;
-  const maxPct = (pMax / P_MAX_DEFAULT) * 100;
 
   return (
     <div
@@ -102,12 +76,12 @@ export default function FilterBar({ open, onFilterChange }: FilterBarProps) {
       <div className="px-8 py-2.5 flex items-center gap-2">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1">
           {CATEGORIES.map((c) => {
-            const active = cat === c.label;
+            const active = cat === c.value;
             return (
-              <Link
-                key={c.label}
-                to={c.href}
-                onClick={() => setCat(c.label)}
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => selectCategory(c.value)}
                 className={`
   flex items-center gap-2 px-4 py-2 rounded-full shrink-0
   font-label text-sm font-semibold whitespace-nowrap select-none
@@ -128,7 +102,7 @@ export default function FilterBar({ open, onFilterChange }: FilterBarProps) {
                   {c.icon}
                 </span>
                 {c.label}
-              </Link>
+              </button>
             );
           })}
         </div>

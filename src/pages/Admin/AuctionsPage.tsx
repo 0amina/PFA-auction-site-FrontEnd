@@ -2,8 +2,10 @@
 // Route: /admin/auctions. Platform-wide auction monitoring with force-delete.
 // Status filter + search are live; delete mutates local state (wire to gateway).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { normalizeAuction, type BackendAuction, type UiAuction } from '../../lib/api';
 
 type Currency = 'TND' | 'SOL';
 type AuctionStatus = 'active' | 'ended' | 'scheduled';
@@ -20,23 +22,36 @@ interface AdminAuction {
   endingSoon?: boolean;
 }
 
-const IMGS = [
-  'https://feahome.com/cdn/shop/products/YN7048_Chinesehand-craftedFloralVaseIncisedDecorationIntricateDesign_1200_4.jpg?v=1655134134',
-  'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?q=80&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?q=80&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1517705008128-361805f42e86?q=80&w=1200&auto=format&fit=crop',
-];
+function adminStatus(a: UiAuction): AuctionStatus {
+  if (a.rawStatus === 'scheduled' || a.rawStatus === 'draft') return 'scheduled';
+  if (a.rawStatus === 'active') return 'active';
+  return 'ended';
+}
 
-const BASE: Omit<AdminAuction, 'image'>[] = [
-  { id: '1', title: 'Handcrafted Antique Ceramic Vase', seller: 'Galerie Sfax',     currency: 'TND', status: 'active',    currentBid: 920,  endsIn: '1d 17h' },
-  { id: '2', title: 'Vintage Rolex Submariner 1680',    seller: 'Karim Belhadj',    currency: 'SOL', status: 'active',    currentBid: 14.2, endsIn: '4h 12m', endingSoon: true },
-  { id: '3', title: 'Mid-Century Walnut Lounge Chair',  seller: 'Maison Vintage',   currency: 'TND', status: 'scheduled', currentBid: 0,    endsIn: 'in 2d' },
-  { id: '4', title: 'Abstract Oil Painting, No.4',       seller: 'Atelier Nord',     currency: 'SOL', status: 'ended',     currentBid: 8.0,  endsIn: '' },
-  { id: '5', title: 'Persian Silk Hand-Knotted Rug',    seller: 'Galerie Sfax',     currency: 'TND', status: 'active',    currentBid: 2350, endsIn: '22h' },
-  { id: '6', title: 'Rare First Edition, Leather Bound', seller: 'Sami Trabelsi',    currency: 'SOL', status: 'ended',     currentBid: 4.5,  endsIn: '' },
-];
+function endsIn(a: UiAuction): string {
+  const ms = a.endsAt.getTime() - Date.now();
+  if (ms <= 0) return '';
+  const d = Math.floor(ms / 86_400_000);
+  const h = Math.floor((ms % 86_400_000) / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
 
-const INITIAL: AdminAuction[] = BASE.map((a, i) => ({ ...a, image: IMGS[i % IMGS.length] }));
+function toAdminAuction(a: UiAuction): AdminAuction {
+  return {
+    id: a.id,
+    title: a.title,
+    seller: `#${String(a.sellerId).slice(0, 8)}`,
+    image: a.imageUrl,
+    currency: a.bidMethod,
+    status: adminStatus(a),
+    currentBid: a.currentBid,
+    endsIn: endsIn(a),
+    endingSoon: a.status === 'ending_soon',
+  };
+}
 
 const FILTERS: { key: 'all' | AuctionStatus; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -64,13 +79,27 @@ function CurrencyBadge({ currency }: { currency: Currency }) {
 }
 
 export default function AuctionsPage() {
-  const [auctions, setAuctions] = useState<AdminAuction[]>(INITIAL);
+  const authFetch = useAuthFetch();
+  const [auctions, setAuctions] = useState<AdminAuction[]>([]);
   const [filter, setFilter] = useState<'all' | AuctionStatus>('all');
   const [query, setQuery] = useState('');
 
-  function remove(id: string) {
-    // TODO: DELETE /admin/auctions/:id via the gateway → auction-service
-    setAuctions((prev) => prev.filter((a) => a.id !== id));
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const res = await authFetch('/auctions/admin/monitor');
+      if (!res.ok) return;
+      const data: { auctions: BackendAuction[] } = await res.json();
+      if (alive) setAuctions((data.auctions ?? []).map(normalizeAuction).map(toAdminAuction));
+    })();
+    return () => { alive = false; };
+  }, [authFetch]);
+
+  async function remove(id: string) {
+    if (!confirm('Force-delete this auction?')) return;
+    const res = await authFetch(`/auctions/${id}`, { method: 'DELETE' });
+    if (res.ok) setAuctions((prev) => prev.filter((a) => a.id !== id));
+    else alert('Could not delete this auction.');
   }
 
   const visible = useMemo(() => {

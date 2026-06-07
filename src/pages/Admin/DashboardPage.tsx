@@ -2,16 +2,22 @@
 // Route: /admin (index). Overview of the platform.
 // Swap the mock constants for real counts from your gateway (admin endpoints).
 
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { normalizeAuction, type BackendAuction } from '../../lib/api';
 
-// ─── Mock figures — replace with real aggregates ──────────────────────────────
-const STATS = {
-  totalUsers: 1284,
-  activeAuctions: 42,
-  endedAuctions: 318,
-  pendingRequests: 7,
-  activeTND: 28,
-  activeSOL: 14,
+interface Stats {
+  totalUsers: number;
+  activeAuctions: number;
+  endedAuctions: number;
+  pendingRequests: number;
+  activeTND: number;
+  activeSOL: number;
+}
+
+const EMPTY_STATS: Stats = {
+  totalUsers: 0, activeAuctions: 0, endedAuctions: 0, pendingRequests: 0, activeTND: 0, activeSOL: 0,
 };
 
 const MONTHLY = [
@@ -50,6 +56,42 @@ function StatCard({ icon, value, label, chip, chipCls, iconTint, iconBg }: {
 
 export default function DashboardPage() {
   const max = Math.max(...MONTHLY.map((d) => d.v));
+  const authFetch = useAuthFetch();
+  const [STATS, setStats] = useState<Stats>(EMPTY_STATS);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const next = { ...EMPTY_STATS };
+      try {
+        const usersRes = await authFetch('/user/admin/all-users');
+        if (usersRes.ok) next.totalUsers = ((await usersRes.json()) as unknown[]).length;
+      } catch { /* ignore */ }
+      try {
+        const reqRes = await authFetch('/user/admin/seller-requests');
+        if (reqRes.ok) {
+          const rows: { status: string }[] = await reqRes.json();
+          next.pendingRequests = rows.filter((r) => r.status === 'pending').length;
+        }
+      } catch { /* ignore */ }
+      try {
+        const monRes = await authFetch('/auctions/admin/monitor');
+        if (monRes.ok) {
+          const data: { auctions: BackendAuction[] } = await monRes.json();
+          const auctions = (data.auctions ?? []).map(normalizeAuction);
+          const active = auctions.filter((a) => a.rawStatus === 'active');
+          next.activeAuctions = active.length;
+          next.endedAuctions = auctions.filter((a) =>
+            ['ended', 'awaiting', 'confirmed'].includes(a.rawStatus),
+          ).length;
+          next.activeTND = active.filter((a) => a.bidMethod === 'TND').length;
+          next.activeSOL = active.filter((a) => a.bidMethod === 'SOL').length;
+        }
+      } catch { /* ignore */ }
+      if (alive) setStats(next);
+    })();
+    return () => { alive = false; };
+  }, [authFetch]);
 
   return (
     <>

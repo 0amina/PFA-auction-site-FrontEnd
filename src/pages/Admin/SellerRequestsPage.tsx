@@ -3,7 +3,8 @@
 // Approve → role becomes SELLER (server-side). Reject → application closed.
 // Both actions remove the card from the queue (wire to the gateway).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 
 interface SellerRequest {
   id: string;
@@ -14,21 +15,73 @@ interface SellerRequest {
   note: string;
 }
 
-const INITIAL: SellerRequest[] = [
-  { id: 'REQ-1042', name: 'Atelier Nord',    email: 'hello@ateliernord.tn',   appliedAt: '04 Jun 2026', category: 'Fine Art',   note: 'Independent gallery, 60+ original works to list.' },
-  { id: 'REQ-1041', name: 'Karim Belhadj',   email: 'k.belhadj@gmail.com',    appliedAt: '03 Jun 2026', category: 'Watches',    note: 'Private collector specialising in vintage dive watches.' },
-  { id: 'REQ-1040', name: 'Maison Vintage',  email: 'contact@maisonvintage.fr', appliedAt: '02 Jun 2026', category: 'Furniture', note: 'Mid-century dealer, ships across the EU.' },
-  { id: 'REQ-1039', name: 'Sami Trabelsi',   email: 'sami.t@outlook.com',     appliedAt: '01 Jun 2026', category: 'Books',      note: 'Rare first editions and manuscripts.' },
-];
+interface SellerRequestRow {
+  id: string;
+  request_owner: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 export default function SellerRequestsPage() {
-  const [requests, setRequests] = useState<SellerRequest[]>(INITIAL);
-  const [approved, setApproved] = useState(142);
+  const authFetch = useAuthFetch();
+  const [requests, setRequests] = useState<SellerRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [approved, setApproved] = useState(0);
   const [rejected, setRejected] = useState(0);
 
-  function decide(id: string, action: 'approve' | 'reject') {
-    // TODO: POST /admin/seller-requests/:id/approve | /reject via the gateway.
-    // Approve flips the user's role to SELLER server-side.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await authFetch('/user/admin/seller-requests');
+        const rows: SellerRequestRow[] = res.ok ? await res.json() : [];
+        if (alive) setApproved(rows.filter((r) => r.status === 'approved').length);
+        if (alive) setRejected(rows.filter((r) => r.status === 'rejected').length);
+
+        const pending = rows.filter((r) => r.status === 'pending');
+        // Resolve applicant identity via the admin user lookup.
+        const detailed = await Promise.all(
+          pending.map(async (r) => {
+            let name = `User ${String(r.request_owner).slice(0, 8)}`;
+            let email = '';
+            try {
+              const u = await authFetch(`/user/${r.request_owner}`);
+              if (u.ok) {
+                const data = await u.json();
+                name = `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || name;
+                email = data.email ?? '';
+              }
+            } catch { /* fall back to id */ }
+            return {
+              id: r.id,
+              name,
+              email,
+              appliedAt: fmtDate(r.requested_at),
+              category: 'Seller application',
+              note: 'Requesting seller access.',
+            } as SellerRequest;
+          }),
+        );
+        if (alive) setRequests(detailed);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [authFetch]);
+
+  async function decide(id: string, action: 'approve' | 'reject') {
+    const res = await authFetch(`/user/admin/seller-requests/${id}/${action}`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message ?? 'Action failed.');
+      return;
+    }
     setRequests((prev) => prev.filter((r) => r.id !== id));
     if (action === 'approve') setApproved((n) => n + 1);
     else setRejected((n) => n + 1);
@@ -90,8 +143,12 @@ export default function SellerRequestsPage() {
             <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mb-5">
               <span className="material-symbols-outlined text-secondary" style={{ fontSize: '30px', fontVariationSettings: "'FILL' 1" }}>task_alt</span>
             </div>
-            <h3 className="font-headline text-xl font-bold text-on-surface mb-1.5">Queue cleared</h3>
-            <p className="font-body text-sm text-on-surface-variant">No seller requests are waiting for review.</p>
+            <h3 className="font-headline text-xl font-bold text-on-surface mb-1.5">
+              {loading ? 'Loading requests…' : 'Queue cleared'}
+            </h3>
+            <p className="font-body text-sm text-on-surface-variant">
+              {loading ? 'Fetching seller applications.' : 'No seller requests are waiting for review.'}
+            </p>
           </div>
         )}
       </div>

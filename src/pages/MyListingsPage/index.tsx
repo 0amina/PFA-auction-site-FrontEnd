@@ -9,9 +9,12 @@
 // The action handlers below are stubs — point them at your gateway endpoints.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ListingCard, { type Listing, type ListingStatus } from './ListingCard';
+import { useAuth } from '../../context/AuthContext';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+import { request, normalizeAuction, type BackendAuction, type UiAuction } from '../../lib/api';
 
 type TabKey = 'active' | 'drafts' | 'ended';
 
@@ -21,66 +24,36 @@ function tabOf(s: ListingStatus): TabKey {
   return 'ended'; // awaiting, sold, unsold
 }
 
-// ─── Mock data — swap for the real fetch (see header note) ────────────────────
+// Backend auction status → seller-facing listing status.
+function toListingStatus(a: UiAuction): ListingStatus {
+  switch (a.rawStatus) {
+    case 'draft': return 'draft';
+    case 'scheduled': return 'scheduled';
+    case 'active': return 'live';
+    case 'awaiting': return 'awaiting';
+    case 'confirmed': return 'sold';
+    case 'ended': return a.highestBidderId ? 'sold' : 'unsold';
+    default: return 'live';
+  }
+}
 
-const now = Date.now();
-const inHours = (h: number) => new Date(now + h * 3_600_000).toISOString();
-const inDays  = (d: number) => new Date(now + d * 86_400_000).toISOString();
-const daysAgo = (d: number) => new Date(now - d * 86_400_000).toISOString();
-
-const IMGS = [
-  'https://feahome.com/cdn/shop/products/YN7048_Chinesehand-craftedFloralVaseIncisedDecorationIntricateDesign_1200_4.jpg?v=1655134134',
-  'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?q=80&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?q=80&w=1200&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1517705008128-361805f42e86?q=80&w=1200&auto=format&fit=crop',
-];
-
-// Annotated as Omit<Listing,'image'>[] so currency/status keep their literal
-// union types instead of widening to string before the map adds the image.
-const RAW: Omit<Listing, 'image'>[] = [
-  {
-    id: '1', title: 'Handcrafted Antique Ceramic Vase', category: 'Home Decor • Antique Vases',
-    currency: 'TND', status: 'live', startingPrice: 400, currentBid: 920, bidCount: 12, views: 340,
-    startsAt: daysAgo(2), endsAt: inHours(41),
-  },
-  {
-    id: '2', title: 'Vintage Rolex Submariner 1680', category: 'Watches • Diver',
-    currency: 'SOL', status: 'live', startingPrice: 8, currentBid: 14.2, bidCount: 8, views: 512,
-    startsAt: daysAgo(1), endsAt: inHours(5),
-  },
-  {
-    id: '3', title: 'Mid-Century Walnut Lounge Chair', category: 'Furniture • Seating',
-    currency: 'TND', status: 'scheduled', startingPrice: 1500, currentBid: 0, bidCount: 0, views: 0,
-    startsAt: inDays(2), endsAt: inDays(7),
-  },
-  {
-    id: '4', title: 'Art Deco Brass Table Lamp', category: 'Lighting • Table Lamps',
-    currency: 'TND', status: 'draft', startingPrice: 350, currentBid: 0, bidCount: 0, views: 0,
-    startsAt: '', endsAt: '',
-  },
-  {
-    id: '5', title: 'Abstract Oil Painting, Untitled No.4', category: 'Art • Paintings',
-    currency: 'SOL', status: 'draft', startingPrice: 5, currentBid: 0, bidCount: 0, views: 0,
-    startsAt: '', endsAt: '',
-  },
-  {
-    id: '6', title: 'Persian Silk Hand-Knotted Rug', category: 'Textiles • Rugs',
-    currency: 'TND', status: 'awaiting', startingPrice: 1200, currentBid: 2350, bidCount: 9, views: 410,
-    startsAt: daysAgo(8), endsAt: daysAgo(1), endedAt: daysAgo(1),
-  },
-  {
-    id: '7', title: 'Rare First Edition, Bound in Leather', category: 'Books • First Editions',
-    currency: 'SOL', status: 'sold', startingPrice: 2, currentBid: 4.5, bidCount: 6, views: 280,
-    startsAt: daysAgo(10), endsAt: daysAgo(3), endedAt: daysAgo(3),
-  },
-  {
-    id: '8', title: 'Vintage Brass Mantel Clock', category: 'Antiques • Clocks',
-    currency: 'TND', status: 'unsold', startingPrice: 600, currentBid: 0, bidCount: 0, views: 95,
-    startsAt: daysAgo(12), endsAt: daysAgo(5), endedAt: daysAgo(5),
-  },
-];
-
-const MOCK_LISTINGS: Listing[] = RAW.map((l, i) => ({ ...l, image: IMGS[i % IMGS.length] }));
+function toListing(a: UiAuction): Listing {
+  return {
+    id: a.id,
+    title: a.title,
+    image: a.imageUrl,
+    category: a.category,
+    currency: a.bidMethod,
+    status: toListingStatus(a),
+    startingPrice: a.startingBid,
+    currentBid: a.bidCount > 0 ? a.currentBid : 0,
+    bidCount: a.bidCount,
+    views: a.viewCount,
+    startsAt: '',
+    endsAt: a.endTime,
+    endedAt: a.status === 'closed' ? a.endTime : undefined,
+  };
+}
 
 // ─── Local sub-components ─────────────────────────────────────────────────────
 
@@ -135,16 +108,53 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function MyListingsPage() {
   const navigate = useNavigate();
+  const { user, refreshUser } = useAuth();
+  const authFetch = useAuthFetch();
   const [tab, setTab] = useState<TabKey>('active');
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const listings = MOCK_LISTINGS; // ← replace with useMyListings()
+  const load = useCallback(async () => {
+    if (!user) return;
+    const rows = await request<BackendAuction[]>('/auctions', { auth: false });
+    const mine = rows
+      .map(normalizeAuction)
+      .filter((a) => String(a.sellerId) === String(user.id))
+      .map(toListing);
+    setListings(mine);
+  }, [user]);
 
-  // ── Action handlers — wire to gateway → auction-service ──
-  const onEdit    = (id: string) => navigate(`/auctions/${id}/edit`);            // add an edit route (CreateAuctionPage in edit mode)
-  const onPublish = (_id: string) => { /* PATCH /auctions/:id/publish  */ };
-  const onDelete  = (_id: string) => { /* DELETE /auctions/:id          */ };
-  const onConfirm = (_id: string) => { /* POST  /auctions/:id/confirm  -> credits seller balance */ };
-  const onRelist  = (_id: string) => navigate('/auctions/create');
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try { await load(); }
+      catch (e: any) { if (alive) setError(e?.message ?? 'Failed to load your listings'); }
+      finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [load]);
+
+  // ── Action handlers — gateway → auction-service ──
+  const onEdit = (id: string) => navigate(`/auctions/${id}/edit`);
+  const onPublish = () => {
+    alert('Auctions you scheduled go live automatically at their start time.');
+  };
+  const onDelete = async (id: string) => {
+    if (!confirm('Delete this auction? This cannot be undone.')) return;
+    const res = await authFetch(`/auctions/${id}`, { method: 'DELETE' });
+    if (res.ok) await load();
+    else alert('Could not delete this auction.');
+  };
+  const onConfirm = async (id: string) => {
+    const res = await authFetch(`/auctions/${id}/confirm-winner`, { method: 'PATCH' });
+    if (res.ok) { await load(); await refreshUser(); }
+    else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message ?? 'Could not confirm the sale.');
+    }
+  };
+  const onRelist = () => navigate('/auctions/create');
 
   const counts: Record<TabKey, number> = {
     active: listings.filter((l) => tabOf(l.status) === 'active').length,
@@ -212,7 +222,11 @@ export default function MyListingsPage() {
       </div>
 
       {/* List */}
-      {visible.length === 0 ? (
+      {loading ? (
+        <div className="py-20 text-center text-on-surface-variant font-label">Loading your listings…</div>
+      ) : error ? (
+        <div className="py-12 text-center text-error font-label">{error}</div>
+      ) : visible.length === 0 ? (
         <EmptyState tab={tab} />
       ) : (
         <div className="space-y-4">

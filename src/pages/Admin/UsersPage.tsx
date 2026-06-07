@@ -2,7 +2,8 @@
 // Route: /admin/users. Directory of all accounts with role/status filters and
 // a working ban/unban toggle (mutates local state — wire to the gateway).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
 
 type Role = 'buyer' | 'seller' | 'admin';
 type UserStatus = 'active' | 'banned';
@@ -13,20 +14,20 @@ interface AdminUser {
   email: string;
   role: Role;
   status: UserStatus;
-  balance: number;        // TND
   wallet: string | null;  // shortened Phantom address
   joined: string;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const INITIAL: AdminUser[] = [
-  { id: 'USR-8829', name: 'Amina Khelifi',   email: 'amina.k@gmail.com',        role: 'seller', status: 'active', balance: 4250.0, wallet: '7xKa…9fQp', joined: '12 Jan 2026' },
-  { id: 'USR-1245', name: 'Youssef Brahmi',  email: 'y.brahmi@outlook.com',     role: 'buyer',  status: 'active', balance: 1180.5, wallet: null,        joined: '03 Feb 2026' },
-  { id: 'USR-9012', name: 'Marc Thorne',     email: 'm.thorne@proton.me',       role: 'buyer',  status: 'banned', balance: 0.0,    wallet: 'Hk2v…Lp8s', joined: '27 Nov 2025' },
-  { id: 'USR-2231', name: 'Ranim Saidi',     email: 'ranim.saidi@gmail.com',    role: 'admin',  status: 'active', balance: 0.0,    wallet: null,        joined: '01 Oct 2025' },
-  { id: 'USR-3390', name: 'Galerie Sfax',    email: 'contact@galeriesfax.tn',   role: 'seller', status: 'active', balance: 9820.0, wallet: 'Bv9q…2mNr', joined: '19 Mar 2026' },
-  { id: 'USR-4471', name: 'Leïla Gharbi',    email: 'leila.gharbi@gmail.com',   role: 'buyer',  status: 'active', balance: 540.0,  wallet: '3pLx…7Yht', joined: '22 Apr 2026' },
-];
+interface AdminUserRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: Role;
+  is_banned?: boolean;
+  phantom_wallet_address?: string | null;
+  signup_date?: string;
+}
 
 const ROLE_BADGE: Record<Role, string> = {
   buyer:  'bg-surface-container-highest text-on-surface-variant',
@@ -34,19 +35,56 @@ const ROLE_BADGE: Record<Role, string> = {
   admin:  'bg-tertiary/10 text-tertiary',
 };
 
-function fmtTND(n: number) {
-  return `${n.toLocaleString('fr-TN', { maximumFractionDigits: 0 })} TND`;
+function shortWallet(w?: string | null): string | null {
+  return w ? `${w.slice(0, 4)}…${w.slice(-4)}` : null;
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<AdminUser[]>(INITIAL);
+  const authFetch = useAuthFetch();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [role, setRole] = useState<'all' | Role>('all');
   const [status, setStatus] = useState<'all' | UserStatus>('all');
 
-  function toggleBan(id: string) {
-    // TODO: PATCH /admin/users/:id/ban (and /unban) via the gateway → user-service
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: u.status === 'banned' ? 'active' : 'banned' } : u)));
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await authFetch('/user/admin/all-users');
+        const rows: AdminUserRow[] = res.ok ? await res.json() : [];
+        if (alive) {
+          setUsers(rows.map((u) => ({
+            id: u.id,
+            name: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
+            email: u.email,
+            role: u.role,
+            status: u.is_banned ? 'banned' : 'active',
+            wallet: shortWallet(u.phantom_wallet_address),
+            joined: fmtDate(u.signup_date),
+          })));
+        }
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [authFetch]);
+
+  async function toggleBan(id: string) {
+    const res = await authFetch(`/user/admin/users/${id}/ban`, { method: 'PATCH' });
+    if (!res.ok) { alert('Could not update ban status.'); return; }
+    const { is_banned } = await res.json().catch(() => ({ is_banned: undefined }));
+    setUsers((prev) => prev.map((u) =>
+      u.id === id
+        ? { ...u, status: (is_banned ?? u.status !== 'banned') ? 'banned' : 'active' }
+        : u,
+    ));
   }
 
   function reset() { setQuery(''); setRole('all'); setStatus('all'); }
@@ -121,7 +159,7 @@ export default function UsersPage() {
           <table className="w-full text-left border-collapse min-w-[760px]">
             <thead>
               <tr className="bg-surface-container-low border-b border-outline-variant/10">
-                {['User', 'Contact', 'Role', 'Balance', 'Status', 'Actions'].map((h, i) => (
+                {['User', 'Contact', 'Role', 'Joined', 'Status', 'Actions'].map((h, i) => (
                   <th key={h} className={`py-5 px-6 font-label text-[11px] uppercase tracking-[0.15em] font-bold text-on-surface-variant opacity-60 ${i === 5 ? 'text-right' : ''}`}>{h}</th>
                 ))}
               </tr>
@@ -149,7 +187,7 @@ export default function UsersPage() {
                       <span className={`px-3 py-1 rounded-full text-[10px] font-label font-bold uppercase tracking-wide ${ROLE_BADGE[u.role]}`}>{u.role}</span>
                     </td>
                     <td className="py-5 px-6">
-                      <span className="font-headline font-bold text-sm">{u.role === 'admin' ? '—' : fmtTND(u.balance)}</span>
+                      <span className="font-body text-sm text-on-surface-variant">{u.joined}</span>
                     </td>
                     <td className="py-5 px-6">
                       <div className="flex items-center gap-2">
@@ -175,7 +213,9 @@ export default function UsersPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-on-surface-variant font-body text-sm">No users match these filters.</td>
+                  <td colSpan={6} className="py-16 text-center text-on-surface-variant font-body text-sm">
+                    {loading ? 'Loading users…' : 'No users match these filters.'}
+                  </td>
                 </tr>
               )}
             </tbody>

@@ -1,19 +1,19 @@
-import { type Auction } from '../types/auction';
+import { type UiAuction } from '../lib/api';
 import { formatMoney } from '../utils/currency';
 import { useNavigate } from 'react-router-dom';
 
 interface AuctionCardProps {
-  auction: Auction;
+  auction: UiAuction;
   variant?: 'featured' | 'standard';
 }
 
-// Auctions carry no explicit currency yet — fiat lots settle in TND.
-function formatCurrency(amount: number) {
-  return formatMoney(amount, 'TND');
+// Each auction declares its own settlement currency via `bidMethod` (TND | SOL).
+function formatCurrency(amount: number, auction: UiAuction) {
+  return formatMoney(amount, auction.bidMethod ?? 'TND');
 }
 
 // --- Featured (large) card ---
-function FeaturedCard({ auction }: { auction: Auction }) {
+function FeaturedCard({ auction }: { auction: UiAuction }) {
   return (
     <article className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-2xl overflow-hidden group editorial-shadow transition-all">
       <div className="flex flex-col md:flex-row h-full">
@@ -50,7 +50,7 @@ function FeaturedCard({ auction }: { auction: Auction }) {
             </div>
             <div className="flex items-center justify-between">
               <span className="font-headline text-3xl font-black text-on-surface">
-                {formatCurrency(auction.currentBid)}
+                {formatCurrency(auction.currentBid, auction)}
               </span>
               <div className="flex -space-x-2">
                 <div className="w-8 h-8 rounded-full bg-surface-container-high border-2 border-white" />
@@ -74,7 +74,7 @@ function StandardCard({
   auction,
   onClick,
 }: {
-  auction: Auction;
+  auction: UiAuction;
   onClick?: () => void;
 }) {
   const isEndingSoon = auction.status === 'ending_soon';
@@ -134,7 +134,7 @@ function StandardCard({
             <span
               className={`font-headline text-xl font-bold ${isEndingSoon ? 'text-tertiary' : ''}`}
             >
-              {formatCurrency(auction.currentBid)}
+              {formatCurrency(auction.currentBid, auction)}
             </span>
           </div>
           <div className="text-right">

@@ -1,9 +1,30 @@
+import { useEffect, useState } from 'react';
 import AuctionCard from '../../components/AuctionCard';
-import { MOCK_AUCTIONS } from '../../data/mockAuctions';
 import { Link } from 'react-router-dom';
+import { request, normalizeAuction, type BackendAuction, type UiAuction } from '../../lib/api';
 
 export default function FeaturedSection() {
-  const [featured, ...rest] = MOCK_AUCTIONS;
+  const [auctions, setAuctions] = useState<UiAuction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        // Public endpoint — show the live (active) lots first.
+        const rows = await request<BackendAuction[]>('/auctions?status=active', { auth: false });
+        if (alive) setAuctions(rows.map(normalizeAuction));
+      } catch (e: any) {
+        if (alive) setError(e?.message ?? 'Failed to load auctions');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const [featured, ...rest] = auctions;
 
   return (
     <>
@@ -28,14 +49,30 @@ export default function FeaturedSection() {
         </Link>
       </div>
 
-      {/* GRID (IMPORTANT: KEEP 12 GRID) */}
-      <div className="grid grid-cols-12 gap-8">
-        <AuctionCard auction={featured} variant="featured" />
+      {loading && (
+        <div className="py-20 text-center text-on-surface-variant font-label">Loading featured lots…</div>
+      )}
 
-        {rest.map((auction) => (
-          <AuctionCard key={auction.id} auction={auction} variant="standard" />
-        ))}
-      </div>
+      {!loading && error && (
+        <div className="py-12 text-center text-error font-label">{error}</div>
+      )}
+
+      {!loading && !error && auctions.length === 0 && (
+        <div className="py-16 text-center text-on-surface-variant font-label">
+          No active auctions right now. Check back soon.
+        </div>
+      )}
+
+      {/* GRID (IMPORTANT: KEEP 12 GRID) */}
+      {!loading && !error && auctions.length > 0 && (
+        <div className="grid grid-cols-12 gap-8">
+          <AuctionCard auction={featured} variant="featured" />
+
+          {rest.map((auction) => (
+            <AuctionCard key={auction.id} auction={auction} variant="standard" />
+          ))}
+        </div>
+      )}
     </>
   );
 }

@@ -3,7 +3,16 @@
 // Features: live card preview sync, tilt parallax, auto-format inputs, submit animation.
 
 import { useState, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useAuthFetch } from '../../hooks/useAuthFetch';
+
+// Detect a card brand from its leading digits (display metadata only).
+function detectBrand(number: string): string {
+  const d = number.replace(/\D/g, '');
+  if (d.startsWith('4')) return 'visa';
+  if (/^5[1-5]/.test(d)) return 'mastercard';
+  if (/^3[47]/.test(d)) return 'amex';
+  return 'other';
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CardState {
@@ -190,6 +199,7 @@ function Field({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AddCardPage() {
+  const authFetch               = useAuthFetch();
   const [card, setCard]         = useState<CardState>({ name: '', number: '', expiry: '', cvv: '' });
   const [tilt, setTilt]         = useState({ x: 0, y: 0 });
   const [cvvFocused, setCvvFocused] = useState(false);
@@ -236,11 +246,32 @@ export default function AddCardPage() {
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  function handleSubmit(e: React.FormEvent) {
+  // PCI note: the PAN/CVV never leave the browser — we only persist safe display
+  // metadata (brand, last4, expiry) via payment-service. A real integration would
+  // tokenize the card with Konnect and store the returned token instead.
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate() || status !== 'idle') return;
     setStatus('loading');
-    setTimeout(() => setStatus('success'), 2000);
+
+    const digits = card.number.replace(/\D/g, '');
+    const [mm, yy] = card.expiry.split('/');
+    const payload = {
+      brand: detectBrand(card.number),
+      last4: digits.slice(-4),
+      expMonth: Number(mm),
+      expYear: 2000 + Number(yy),
+      label: card.name,
+    };
+
+    try {
+      const res = await authFetch('/payments/cards', { method: 'POST', body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('save failed');
+      setStatus('success');
+    } catch {
+      setStatus('idle');
+      setErrors((prev) => ({ ...prev, number: 'Could not save card. Try again.' }));
+    }
   }
 
   return (

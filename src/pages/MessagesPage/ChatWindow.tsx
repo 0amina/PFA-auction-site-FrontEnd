@@ -9,12 +9,14 @@ interface Props {
   messages:     Message[];
   onSend:       (text: string) => void;
   isTyping:     boolean;
+  onTyping?:    (typing: boolean) => void;
 }
 
-export default function ChatWindow({ conversation, messages, onSend, isTyping }: Props) {
+export default function ChatWindow({ conversation, messages, onSend, isTyping, onTyping }: Props) {
   const [draft, setDraft]   = useState('');
   const bottomRef           = useRef<HTMLDivElement>(null);
   const textareaRef         = useRef<HTMLTextAreaElement>(null);
+  const typingStopRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -27,6 +29,11 @@ export default function ChatWindow({ conversation, messages, onSend, isTyping }:
     const el = e.target;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
+
+    // Emit a "typing" signal, then auto-stop after a short idle.
+    onTyping?.(true);
+    if (typingStopRef.current) clearTimeout(typingStopRef.current);
+    typingStopRef.current = setTimeout(() => onTyping?.(false), 1500);
   }
 
   function handleSend() {
@@ -34,6 +41,8 @@ export default function ChatWindow({ conversation, messages, onSend, isTyping }:
     if (!text) return;
     onSend(text);
     setDraft('');
+    onTyping?.(false);
+    if (typingStopRef.current) clearTimeout(typingStopRef.current);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }

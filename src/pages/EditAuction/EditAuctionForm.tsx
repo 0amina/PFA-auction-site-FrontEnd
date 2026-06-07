@@ -6,7 +6,6 @@
 
 import type { AuctionCategory, AuctionDuration, ConditionGrade } from '../../types/auction';
 import type { EditFormState } from './useEditFormState';
-import ImageUpload from '../CreateAuctionPage/ImageUpload';
 
 // ─── Constants (same as AuctionForm) ─────────────────────────────────────────
 const CATEGORIES: AuctionCategory[] = ['Timepieces', 'Fine Art', 'Jewelry', 'Automobiles', 'Rare Coins'];
@@ -28,8 +27,6 @@ interface Props {
   setField:      <K extends keyof EditFormState>(field: K, value: EditFormState[K]) => void;
   isValid:       boolean;
   isLocked:      boolean;
-  images:        string[];
-  onImagesChange:(urls: string[]) => void;
   onSubmit:      (e: React.FormEvent) => void;
   onSaveDraft:   () => void;
   saveStatus:    'idle' | 'saving' | 'saved';
@@ -39,7 +36,6 @@ interface Props {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function EditAuctionForm({
   form, setField, isValid, isLocked,
-  images, onImagesChange,
   onSubmit, onSaveDraft,
   saveStatus, onDeleteClick,
 }: Props) {
@@ -90,8 +86,9 @@ export default function EditAuctionForm({
 
       {/* 02 — Visual Documentation */}
       <Section step="02" title="Visual Documentation">
-        {/* Seed ImageUpload with existing images by key trick */}
-        <ImageUpload onImagesChange={onImagesChange} />
+        <p className="font-body text-sm text-on-surface-variant">
+          Images can't be changed after a lot is created. Delete and re-list to update photography.
+        </p>
       </Section>
 
       {/* 03 — Auction Parameters */}

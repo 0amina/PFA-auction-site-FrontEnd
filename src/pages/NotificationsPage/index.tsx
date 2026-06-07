@@ -5,73 +5,40 @@
 // useMemo   → filtered + sorted notification list (only recomputes on data/filter change)
 // useCallback → stable markAllRead handler
 
-import { useState, useMemo, useCallback } from 'react';
-import type { Notification, NotificationType } from '../../types/notification';
+import { useState, useMemo } from 'react';
+import { useNotifications, type UiNotification } from '../../context/NotificationsContext';
 
-// ─── Mock data — replace with useNotifications() hook once backend is wired ──
-const MOCK: Notification[] = [
-  {
-    id: '1', type: 'outbid', read: false, timeAgo: '2 mins ago',
-    title: 'You have been outbid',
-    body: 'Someone just placed a higher bid on',
-    auctionTitle: '1964 Vintage Rolex Daytona', auctionId: '1',
-  },
-  {
-    id: '2', type: 'new_bid', read: true, timeAgo: '15 mins ago',
-    title: 'New bid placed by @collector_art',
-    body: 'A new bid of 12,500 TND was placed on',
-    auctionTitle: 'Abstract Composition No. 4', auctionId: '2',
-  },
-  {
-    id: '3', type: 'ending_soon', read: true, timeAgo: '1 hour ago',
-    title: 'Auction ending in 30m',
-    body: 'The bidding for',
-    auctionTitle: 'Mid-Century Modern Eames Chair', auctionId: '3',
-  },
-  {
-    id: '4', type: 'outbid', read: true, timeAgo: '3 hours ago',
-    title: 'You have been outbid',
-    body: 'A competitive bid was placed on',
-    auctionTitle: "First Edition 'The Great Gatsby'", auctionId: '4',
-  },
-  {
-    id: '5', type: 'won', read: true, timeAgo: 'Yesterday',
-    title: 'Congratulations! You won',
-    body: 'You are the winning bidder for',
-    auctionTitle: 'Signed Contemporary Sculpture', auctionId: '5',
-  },
-];
-
-// Icon + colour config per notification type
-const TYPE_CONFIG: Record<NotificationType, { icon: string; iconColor: string; bgColor: string }> = {
-  outbid:      { icon: 'warning',  iconColor: 'text-tertiary',  bgColor: 'bg-tertiary-container/10' },
-  new_bid:     { icon: 'gavel',    iconColor: 'text-secondary', bgColor: 'bg-secondary-container/10' },
-  ending_soon: { icon: 'schedule', iconColor: 'text-primary',   bgColor: 'bg-primary-container/10' },
-  won:         { icon: 'stars',    iconColor: 'text-secondary', bgColor: 'bg-secondary-container/20' },
+// Icon + colour config keyed by the backend notification types, with a default.
+const TYPE_CONFIG: Record<string, { icon: string; iconColor: string; bgColor: string }> = {
+  you_won:         { icon: 'stars',    iconColor: 'text-secondary', bgColor: 'bg-secondary-container/20' },
+  winner_confirmed:{ icon: 'verified', iconColor: 'text-secondary', bgColor: 'bg-secondary-container/20' },
+  auction_ended:   { icon: 'gavel',    iconColor: 'text-primary',   bgColor: 'bg-primary-container/10' },
+  outbid:          { icon: 'warning',  iconColor: 'text-tertiary',  bgColor: 'bg-tertiary-container/10' },
 };
+const DEFAULT_CONFIG = { icon: 'notifications', iconColor: 'text-primary', bgColor: 'bg-primary-container/10' };
+const configFor = (type: string) => TYPE_CONFIG[type] ?? DEFAULT_CONFIG;
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return days === 1 ? 'Yesterday' : `${days} days ago`;
+}
 
 type Filter = 'all' | 'unread';
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK);
+  const { notifications, unreadCount, loading, markRead, markAllRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>('all');
 
   const filtered = useMemo(
     () => filter === 'unread' ? notifications.filter((n) => !n.read) : notifications,
     [notifications, filter],
   );
-
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
-
-  const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    // TODO: notificationService.markAllRead()
-  }, []);
-
-  const markRead = useCallback((id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
-    // TODO: notificationService.markRead(id)
-  }, []);
 
   return (
     <main className="flex-grow py-12 px-6">
@@ -123,7 +90,9 @@ export default function NotificationsPage() {
 
         {/* List */}
         <div className="space-y-1">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-20 text-on-surface-variant font-body">Loading notifications…</div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-20 text-on-surface-variant font-body">
               <span className="material-symbols-outlined text-5xl mb-4 block text-outline">notifications_off</span>
               No {filter === 'unread' ? 'unread ' : ''}notifications.
@@ -134,24 +103,14 @@ export default function NotificationsPage() {
             ))
           )}
         </div>
-
-        {/* Load more */}
-        {filtered.length > 0 && (
-          <div className="mt-12 text-center">
-            <button className="text-primary font-bold font-label text-sm hover:underline transition-all">
-              Load earlier notifications
-            </button>
-          </div>
-        )}
       </div>
     </main>
   );
 }
 
 // ─── NotificationItem — local to this page ────────────────────────────────────
-function NotificationItem({ notification: n, onRead }: { notification: Notification; onRead: (id: string) => void }) {
-  const { icon, iconColor, bgColor } = TYPE_CONFIG[n.type];
-  const isWon = n.type === 'won';
+function NotificationItem({ notification: n, onRead }: { notification: UiNotification; onRead: (id: string) => void }) {
+  const { icon, iconColor, bgColor } = configFor(n.type);
 
   return (
     <div
@@ -166,7 +125,7 @@ function NotificationItem({ notification: n, onRead }: { notification: Notificat
       <div className={`shrink-0 w-12 h-12 rounded-full ${bgColor} flex items-center justify-center`}>
         <span
           className={`material-symbols-outlined ${iconColor}`}
-          style={isWon ? { fontVariationSettings: "'FILL' 1" } : undefined}
+          style={{ fontVariationSettings: "'FILL' 1" }}
         >
           {icon}
         </span>
@@ -179,20 +138,18 @@ function NotificationItem({ notification: n, onRead }: { notification: Notificat
           {!n.read && <span className="w-2 h-2 rounded-full bg-primary-container shrink-0" />}
         </div>
         <p className="text-on-surface-variant text-sm mb-2">
-          {n.body}{' '}
-          <a
-            href={`/auctions/${n.auctionId}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-primary font-semibold hover:underline"
-          >
-            {n.auctionTitle}
-          </a>
-          {n.type === 'outbid' && '. Act fast to reclaim your lead.'}
-          {n.type === 'won' && '. Check your email for details.'}
-          {n.type === 'ending_soon' && ' is coming to a close.'}
-          .
+          {n.message}{' '}
+          {n.auctionId && (
+            <a
+              href={`/auctions/${n.auctionId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-primary font-semibold hover:underline"
+            >
+              View lot
+            </a>
+          )}
         </p>
-        <span className="font-label text-xs text-outline font-medium">{n.timeAgo}</span>
+        <span className="font-label text-xs text-outline font-medium">{timeAgo(n.createdAt)}</span>
       </div>
 
       {/* More button */}

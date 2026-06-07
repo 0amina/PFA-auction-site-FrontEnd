@@ -7,12 +7,27 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthState, AuthUser, LoginPayload, RegisterPayload } from '../types/auth';
+import { API_URL, request } from '../lib/api';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const API        = import.meta.env.VITE_USER_SERVICE_URL ?? 'http://localhost:3001';
+const API        = API_URL;          // the API gateway — single backend entry point
 const TOKEN_KEY  = 'curator_token';
 const USER_KEY   = 'curator_user';
+
+/**
+ * Normalises a backend user into the shape the UI expects.
+ * The backend stores the Solana wallet as `phantom_wallet_address`; the UI
+ * reads `wallet_address`. Keep both so either name works downstream.
+ */
+function normalizeUser(raw: any): AuthUser {
+  const wallet = raw?.wallet_address ?? raw?.phantom_wallet_address ?? null;
+  return {
+    ...raw,
+    wallet_address: wallet,
+    phantom_wallet_address: wallet,
+  } as AuthUser;
+}
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
@@ -46,6 +61,8 @@ interface AuthContextValue extends AuthState {
   login:    (payload: LoginPayload)    => Promise<void>;
   register: (payload: RegisterPayload) => Promise<{ message: string }>;
   logout:   () => void;
+  /** Re-fetches the current user from the gateway (refreshes balance/wallet/role). */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -92,12 +109,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(err.message ?? 'Login failed');
     }
 
-    const { user, accessToken } = await res.json();
+    const data = await res.json();
+    const user = normalizeUser(data.user);
+    const accessToken = data.accessToken;
 
     localStorage.setItem(TOKEN_KEY, accessToken);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
 
     dispatch({ type: 'LOGIN_SUCCESS', user, accessToken });
+  }, []);
+
+  // ── refreshUser ─────────────────────────────────────────────────────────────
+  // Pulls the latest profile (balance, wallet, role) from the gateway and
+  // updates both state and localStorage. Safe to call after deposits, wallet
+  // linking, seller approval, etc.
+
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    try {
+      const raw = await request<any>('/user/me', { auth: true });
+      const user = normalizeUser(raw);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      dispatch({ type: 'LOGIN_SUCCESS', user, accessToken: token });
+    } catch {
+      // Non-fatal: keep the cached user if the refresh fails.
+    }
   }, []);
 
   // ── register ──────────────────────────────────────────────────────────────
@@ -126,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
