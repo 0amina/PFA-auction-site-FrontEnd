@@ -143,12 +143,11 @@ export default function MessagesPage() {
   }
 
   return (
-    /*
-     * This page sits inside MainLayout (Navbar + Sidebar + Footer already present).
-     * The split-screen layout fills the remaining viewport height below the 64px navbar.
-     * overflow-hidden on this wrapper prevents double scrollbars.
-     */
-    <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
+  <div className="w-full px-4 md:px-6 lg:px-10 py-4">
+    <div
+      className="flex overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-sm"
+      style={{ height: 'calc(100vh - 96px)' }}
+    >
       <ConversationList
         conversations={conversations}
         activeId={activeId}
@@ -161,5 +160,6 @@ export default function MessagesPage() {
         isTyping={isTyping}
       />
     </div>
-  );
+  </div>
+);
 }

@@ -27,7 +27,7 @@ export function openSidebar() {
 
 export default function Sidebar() {
   const [open, setOpen]       = useState(false);
-  const [sellerMode, setSellerMode] = useState(true); // true = viewing as seller
+  const [sellerMode, setSellerMode] = useState(false); // true = viewing as seller
   const { user, logout }      = useAuth();
   const { isSeller, isAdmin, isAuthenticated } = useRole();
   const navigate              = useNavigate();

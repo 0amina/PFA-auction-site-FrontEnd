@@ -4,13 +4,13 @@
 // lazy-loaded so its bundle never ships to buyers/sellers.
 
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-
+import { BrowserRouter, Routes, Route, Navigate, } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar         from '../components/Navbar';
 import Sidebar        from '../components/Sidebar';
 import Footer         from '../components/Footer';
 import ProtectedRoute from './ProtectedRoute';
-
+import AddBalancePage from '../pages/AddBalancePage';
 import HomePage          from '../pages/HomePage';
 import AuctionDetailPage from '../pages/AuctionDetailPage/Index';
 import CreateAuctionPage from '../pages/CreateAuctionPage';
@@ -27,6 +27,8 @@ import MyBidsPage        from '../pages/MyBidsPage';
 import MyListingsPage    from '../pages/MyListingsPage';
 import ConnectWalletPage from '../pages/Connectwalletpage/Connectwallet';
 import AddCardPage  from '../pages/AddCardPage';
+import FeaturedAuctionsPage from '../pages/AllAuctionsPage';
+import EditAuctionPage from '../pages/EditAuction';
 // ─── Admin (lazy — code-split out of the main bundle) ─────────────────────────
 const AdminLayout        = lazy(() => import('../pages/Admin/AdminLayout'));
 const AdminDashboardPage = lazy(() => import('../pages/Admin/DashboardPage'));
@@ -41,14 +43,19 @@ const AdminAuctionsPage  = lazy(() => import('../pages/Admin/AuctionsPage'));
 // Sidebar is a self-contained drawer that renders its own toggle tab fixed to
 // the left edge — no offset needed.
 function MainLayout() {
+  const location = useLocation();
+  const isHome = location.pathname === '/';
+
   return (
     <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col">
       <Navbar />
       <Sidebar />
-      <div className="pt-16 flex flex-1 flex-col">
+
+      <div className={`${isHome ? '' : 'pt-16'} flex flex-1 flex-col`}>
         <Outlet />
       </div>
-      <Footer />
+
+{isHome && <Footer />}
     </div>
   );
 }
@@ -98,12 +105,18 @@ export default function AppRouter() {
   path="add-card"
   element={<ProtectedRoute><AddCardPage /></ProtectedRoute>}
 />
+<Route path="add-balance" element={<AddBalancePage />} />
+<Route path="/auctions" element={<FeaturedAuctionsPage />} />
           {/* static before dynamic */}
           <Route
             path="auctions/create"
             element={<ProtectedRoute roles={['seller']}><CreateAuctionPage /></ProtectedRoute>}
           />
-          <Route path="auctions/:id" element={<AuctionDetailPage />} />
+           <Route path="auctions/:id" element={<AuctionDetailPage />} />
+          <Route
+            path="auctions/:id/edit"
+            element={<ProtectedRoute roles={['seller']}><EditAuctionPage /></ProtectedRoute>}
+          />
 
           <Route
             path="my-auctions"

@@ -1,5 +1,6 @@
 import { type Auction } from '../types/auction';
 import { formatMoney } from '../utils/currency';
+import { useNavigate } from 'react-router-dom';
 
 interface AuctionCardProps {
   auction: Auction;
@@ -69,11 +70,17 @@ function FeaturedCard({ auction }: { auction: Auction }) {
 }
 
 // --- Standard card ---
-function StandardCard({ auction }: { auction: Auction }) {
+function StandardCard({
+  auction,
+  onClick,
+}: {
+  auction: Auction;
+  onClick?: () => void;
+}) {
   const isEndingSoon = auction.status === 'ending_soon';
 
   return (
-    <article className="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest rounded-2xl overflow-hidden group editorial-shadow transition-all">
+    <article  onClick={onClick} className="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest rounded-2xl overflow-hidden group editorial-shadow transition-all">
       {/* Image */}
       <div className="aspect-square relative overflow-hidden">
         <img
@@ -160,6 +167,15 @@ function StandardCard({ auction }: { auction: Auction }) {
 
 // --- Public export ---
 export default function AuctionCard({ auction, variant = 'standard' }: AuctionCardProps) {
-  if (variant === 'featured') return <FeaturedCard auction={auction} />;
-  return <StandardCard auction={auction} />;
+  const navigate = useNavigate();
+
+  const goToDetails = () => {
+    navigate(`/auctions/${auction.id}`);
+  };
+
+  if (variant === 'featured') {
+    return <FeaturedCard auction={auction} />;
+  }
+
+  return <StandardCard auction={auction} onClick={goToDetails} />;
 }

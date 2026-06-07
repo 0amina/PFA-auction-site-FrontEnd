@@ -2,7 +2,7 @@
 // One row in the seller's listings. Owns the Listing shape, badges, formatters,
 // and the per-status action buttons. index.tsx imports { Listing, ListingStatus }.
 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // ─── Types (shared with index.tsx) ────────────────────────────────────────────
 
@@ -156,8 +156,11 @@ function ViewLink({ to }: { to: string }) {
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
 export default function ListingCard({ listing, onEdit, onDelete, onPublish, onConfirm, onRelist }: ListingCardProps) {
+  const navigate = useNavigate();
   const hasBids = listing.bidCount > 0;
   const detailUrl = `/auctions/${listing.id}`;
+
+  const goToEdit = () => navigate(`/auctions/${listing.id}/edit`);
 
   // Edit rules: SOL is locked once on-chain (anything past draft); TND locks
   // once the first bid lands.
@@ -239,7 +242,7 @@ export default function ListingCard({ listing, onEdit, onDelete, onPublish, onCo
         <div className="flex flex-wrap gap-2 mt-4">
           {listing.status === 'draft' && (
             <>
-              <Action label="Edit"    icon="edit"          variant="primary" onClick={() => onEdit?.(listing.id)} />
+              <Action label="Edit"    icon="edit"          variant="primary" onClick={goToEdit} />
               <Action label="Publish" icon="rocket_launch" variant="success" onClick={() => onPublish?.(listing.id)} />
               <Action label="Delete"  icon="delete"        variant="danger"  onClick={() => onDelete?.(listing.id)} />
             </>
@@ -248,14 +251,14 @@ export default function ListingCard({ listing, onEdit, onDelete, onPublish, onCo
           {listing.status === 'scheduled' && (
             <>
               <ViewLink to={detailUrl} />
-              <Action label="Edit" icon={editLocked ? 'lock' : 'edit'} onClick={() => onEdit?.(listing.id)} disabled={editLocked} title={editLocked ? lockReason : undefined} />
+              <Action label="Edit" icon={editLocked ? 'lock' : 'edit'} onClick={goToEdit} disabled={editLocked} title={editLocked ? lockReason : undefined} />
             </>
           )}
 
           {listing.status === 'live' && (
             <>
               <ViewLink to={detailUrl} />
-              <Action label="Edit" icon={editLocked ? 'lock' : 'edit'} onClick={() => onEdit?.(listing.id)} disabled={editLocked} title={editLocked ? lockReason : undefined} />
+              <Action label="Edit" icon={editLocked ? 'lock' : 'edit'} onClick={goToEdit} disabled={editLocked} title={editLocked ? lockReason : undefined} />
             </>
           )}
 
